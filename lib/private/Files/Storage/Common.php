@@ -61,6 +61,7 @@ use OCP\Files\ReservedWordException;
 use OCP\Files\Storage\ILockingStorage;
 use OCP\Files\Storage\IStorage;
 use OCP\Files\Storage\IWriteStreamStorage;
+use OCP\IConfig;
 use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
 use Psr\Log\LoggerInterface;
@@ -474,12 +475,20 @@ abstract class Common implements Storage, ILockingStorage, IWriteStreamStorage {
 	}
 
 	/**
-	 * get the free space in the storage
+	 * Get the free space in the storage
+	 *
+	 * In case the admin has overwritten the global instance quota, default to the quota instead of unknown
 	 *
 	 * @param string $path
 	 * @return int|false
 	 */
 	public function free_space($path) {
+		/** @var IConfig $config */
+		$config = \OC::$server->get(IConfig::class);
+		$configQuota = (int) $config->getAppValue('core', 'quota_instance_global', '0');
+		if ($configQuota > 0) {
+			return $configQuota;
+		}
 		return \OCP\Files\FileInfo::SPACE_UNKNOWN;
 	}
 
