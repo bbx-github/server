@@ -442,7 +442,7 @@ steps:
   commands:
     - git submodule update --init
 - name: postgres-php8.0
-  image: ghcr.io/nextcloud/continuous-integration-php8.0:php8.0-3
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   commands:
     - bash tests/drone-run-php-tests.sh || exit 0
     - sleep 10 # gives the database enough time to initialize
