@@ -29,8 +29,6 @@ use function lcfirst;
 use function substr;
 
 /**
- * @method integer getId()
- * @method void setId(integer $id)
  * @since 7.0.0
  */
 abstract class Entity {
