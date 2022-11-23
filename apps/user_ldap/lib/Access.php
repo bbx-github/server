@@ -1366,7 +1366,7 @@ class Access extends LDAPUtility {
 		$name = str_replace(' ', '_', $name);
 
 		// Every remaining disallowed characters will be removed
-		$name = preg_replace('/[^a-zA-Z0-9_.@-]/u', '', $name);
+		$name = preg_replace('/[^a-zA-Z0-9 _.@-]/u', '', $name);
 
 		if (strlen($name) > 64) {
 			$name = (string)hash('sha256', $name, false);
