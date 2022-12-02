@@ -47,8 +47,8 @@ interface IDiscoverableReferenceProvider extends IReferenceProvider {
 	public function getOrder(): int;
 
 	/**
-	 * @return string css class that displays an icon next to the reference provider title
+	 * @return string url to an icon that can be displayed next to the reference provider title
 	 * @since 26.0.0
 	 */
-	public function getIconClass(): string;
+	public function getIconUrl(): string;
 }

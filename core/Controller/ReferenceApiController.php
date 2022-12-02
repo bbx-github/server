@@ -24,9 +24,14 @@ declare(strict_types=1);
 
 namespace OC\Core\Controller;
 
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\Collaboration\Reference\IDiscoverableReferenceProvider;
 use OCP\Collaboration\Reference\IReferenceManager;
+use OCP\Collaboration\Reference\ISearchableReferenceProvider;
 use OCP\IRequest;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 class ReferenceApiController extends \OCP\AppFramework\OCSController {
 	private IReferenceManager $referenceManager;
@@ -87,5 +92,32 @@ class ReferenceApiController extends \OCP\AppFramework\OCSController {
 		return new DataResponse([
 			'references' => array_filter($result)
 		]);
+	}
+
+	/**
+	 * @NoAdminRequired
+	 *
+	 * @return DataResponse
+	 */
+	public function getProvidersInfo(): DataResponse {
+		try {
+			$providers = $this->referenceManager->getDiscoverableProviders();
+		} catch (ContainerExceptionInterface | NotFoundExceptionInterface $e) {
+			return new DataResponse(['message' => 'Error getting providers'], Http::STATUS_NOT_FOUND);
+		}
+
+		$jsonProviders = array_map(static function (IDiscoverableReferenceProvider $provider) {
+			$providerInfo = [
+				'id' => $provider->getId(),
+				'title' => $provider->getTitle(),
+				'icon_url' => $provider->getIconUrl(),
+				'order' => $provider->getOrder(),
+			];
+			if ($provider instanceof ISearchableReferenceProvider) {
+				$providerInfo['search_providers_ids'] = $provider->getSupportedSearchProviderIds();
+			}
+			return $providerInfo;
+		}, $providers);
+		return new DataResponse($jsonProviders);
 	}
 }
