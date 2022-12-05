@@ -107,16 +107,7 @@ class ReferenceApiController extends \OCP\AppFramework\OCSController {
 		}
 
 		$jsonProviders = array_map(static function (IDiscoverableReferenceProvider $provider) {
-			$providerInfo = [
-				'id' => $provider->getId(),
-				'title' => $provider->getTitle(),
-				'icon_url' => $provider->getIconUrl(),
-				'order' => $provider->getOrder(),
-			];
-			if ($provider instanceof ISearchableReferenceProvider) {
-				$providerInfo['search_providers_ids'] = $provider->getSupportedSearchProviderIds();
-			}
-			return $providerInfo;
+			return $provider->jsonSerialize();
 		}, $providers);
 		return new DataResponse($jsonProviders);
 	}

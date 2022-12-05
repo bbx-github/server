@@ -27,34 +27,21 @@ namespace OCP\Collaboration\Reference;
 /**
  * @since 26.0.0
  */
-interface IDiscoverableReferenceProvider extends IReferenceProvider {
-	/**
-	 * @return string Unique id that identifies the reference provider
-	 * @since 26.0.0
-	 */
-	public function getId(): string;
+abstract class ADiscoverableReferenceProvider implements IDiscoverableReferenceProvider {
 
 	/**
-	 * @return string User facing title of the widget
-	 * @since 26.0.0
+	 * @inheritDoc
 	 */
-	public function getTitle(): string;
-
-	/**
-	 * @return int Initial order for reference provider sorting
-	 * @since 26.0.0
-	 */
-	public function getOrder(): int;
-
-	/**
-	 * @return string url to an icon that can be displayed next to the reference provider title
-	 * @since 26.0.0
-	 */
-	public function getIconUrl(): string;
-
-	/**
-	 * @return array representation of the provider
-	 * @since 26.0.0
-	 */
-	public function jsonSerialize(): array;
+	public function jsonSerialize(): array {
+		$json = [
+			'id' => $this->getId(),
+			'title' => $this->getTitle(),
+			'icon_url' => $this->getIconUrl(),
+			'order' => $this->getOrder(),
+		];
+		if ($this instanceof ISearchableReferenceProvider) {
+			$json['search_providers_ids'] = $this->getSupportedSearchProviderIds();
+		}
+		return $json;
+	}
 }
