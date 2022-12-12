@@ -225,11 +225,6 @@ steps:
   commands:
     - git submodule update --init
 - name: nodb-php8.0
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
-  commands:
-    - bash tests/drone-run-php-tests.sh || exit 0
-    - NOCOVERAGE=true TEST_SELECTION=NODB ./autotest.sh sqlite
-- name: nodb-php8.0
   image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   commands:
     - bash tests/drone-run-php-tests.sh || exit 0
@@ -256,11 +251,6 @@ steps:
   image: ghcr.io/nextcloud/continuous-integration-alpine-git:latest
   commands:
     - git submodule update --init
-- name: sqlite-php8.0
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
-  commands:
-    - bash tests/drone-run-php-tests.sh || exit 0
-    - NOCOVERAGE=true TEST_SELECTION=DB ./autotest.sh sqlite
 - name: sqlite-php8.0
   image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   commands:
