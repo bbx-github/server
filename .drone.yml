@@ -7,7 +7,7 @@ steps:
   commands:
     - git submodule update --init
 - name: checkers
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   commands:
     - ./autotest-checkers.sh
   secrets: [ github_token ]
@@ -279,7 +279,7 @@ steps:
   commands:
     - git submodule update --init
 - name: mariadb10.2-php8.0
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   commands:
     - bash tests/drone-run-php-tests.sh || exit 0
     - NOCOVERAGE=true TEST_SELECTION=DB ./autotest.sh mariadb
@@ -393,7 +393,7 @@ steps:
   commands:
     - git submodule update --init
 - name: mysql-php8.0
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   commands:
     - bash tests/drone-run-php-tests.sh || exit 0
     - NOCOVERAGE=true TEST_SELECTION=DB ./autotest.sh mysql
@@ -468,7 +468,7 @@ steps:
   commands:
     - git submodule update --init
 - name: postgres-php8.0
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   commands:
     - bash tests/drone-run-php-tests.sh || exit 0
     - sleep 10 # gives the database enough time to initialize
@@ -1835,7 +1835,7 @@ steps:
   commands:
     - git submodule update --init
 - name: nodb-codecov
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   environment:
       CODECOV_TOKEN:
           from_secret: CODECOV_TOKEN
@@ -1867,7 +1867,7 @@ steps:
   commands:
     - git submodule update --init
 - name: db-codecov
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   environment:
       CODECOV_TOKEN:
           from_secret: CODECOV_TOKEN
@@ -1908,7 +1908,7 @@ steps:
   commands:
     - git submodule update --init
 - name: object-store
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   environment:
       OBJECT_STORE: s3
       CODECOV_TOKEN:
@@ -1938,7 +1938,7 @@ steps:
   commands:
     - git submodule update --init
 - name: object-store
-  image: ghcr.io/nextcloud/continuous-integration-integration-php8.0:latest
+  image: ghcr.io/nextcloud/continuous-integration-php8.0:latest
   environment:
       OBJECT_STORE: azure
       CODECOV_TOKEN:
