@@ -181,8 +181,18 @@ class IMipPlugin extends SabreIMipPlugin {
 			$senderName = $this->userManager->getDisplayName($this->userId);
 		}
 
-		/** @var VEvent $vevent */
-		$vevent = $iTipMessage->message->VEVENT;
+		$iterator = $iTipMessage->message->VEVENT->getIterator();
+		if($iterator->count() > 1) {
+			foreach ($iterator as $item) {
+				if($item->{'RECURRENCE-ID'} !== null) {
+					$vevent = $item;
+					break;
+				}
+			}
+		} else {
+			/** @var VEvent $vevent */
+			$vevent = $iTipMessage->message->VEVENT;
+		}
 
 		$attendee = $this->getCurrentAttendee($iTipMessage);
 		$defaultLang = $this->l10nFactory->findGenericLanguage();
