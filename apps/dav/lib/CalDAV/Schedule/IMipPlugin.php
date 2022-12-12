@@ -148,8 +148,6 @@ class IMipPlugin extends SabreIMipPlugin {
 			return;
 		}
 
-		$summary = $iTipMessage->message->VEVENT->SUMMARY;
-
 		if (parse_url($iTipMessage->sender, PHP_URL_SCHEME) !== 'mailto') {
 			return;
 		}
@@ -182,6 +180,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		}
 
 		$iterator = $iTipMessage->message->VEVENT->getIterator();
+		$vevent = null;
 		if($iterator->count() > 1) {
 			foreach ($iterator as $item) {
 				if($item->{'RECURRENCE-ID'} !== null) {
@@ -189,11 +188,14 @@ class IMipPlugin extends SabreIMipPlugin {
 					break;
 				}
 			}
-		} else {
+		}
+
+		if($vevent === null) {
 			/** @var VEvent $vevent */
 			$vevent = $iTipMessage->message->VEVENT;
 		}
 
+		$summary = $vevent->SUMMARY;
 		$attendee = $this->getCurrentAttendee($iTipMessage);
 		$defaultLang = $this->l10nFactory->findGenericLanguage();
 		$lang = $this->getAttendeeLangOrDefault($defaultLang, $attendee);

@@ -135,7 +135,7 @@ class IMipPluginTest extends TestCase {
 
 	public function testDelivery() {
 		$this->config
-	  ->expects($this->at(1))
+			->expects($this->at(1))
 			->method('getAppValue')
 			->with('dav', 'invitation_link_recipients', 'yes')
 			->willReturn('yes');
@@ -149,7 +149,7 @@ class IMipPluginTest extends TestCase {
 
 	public function testFailedDelivery() {
 		$this->config
-	  ->expects($this->at(1))
+			->expects($this->at(1))
 			->method('getAppValue')
 			->with('dav', 'invitation_link_recipients', 'yes')
 			->willReturn('yes');
@@ -174,7 +174,7 @@ class IMipPluginTest extends TestCase {
 
 	public function testDeliveryWithNoCommonName() {
 		$this->config
-	  ->expects($this->at(1))
+			->expects($this->at(1))
 			->method('getAppValue')
 			->with('dav', 'invitation_link_recipients', 'yes')
 			->willReturn('yes');
@@ -198,8 +198,8 @@ class IMipPluginTest extends TestCase {
 	 */
 	public function testNoMessageSendForPastEvents(array $veventParams, bool $expectsMail) {
 		$this->config
-	  ->method('getAppValue')
-	  ->willReturn('yes');
+			->method('getAppValue')
+			->willReturn('yes');
 		$this->mailer->method('validateMailAddress')->willReturn(true);
 
 		$message = $this->_testMessage($veventParams);
@@ -239,7 +239,7 @@ class IMipPluginTest extends TestCase {
 
 		$this->_expectSend($recipient, true, $has_buttons);
 		$this->config
-	  ->expects($this->at(1))
+			->expects($this->at(1))
 			->method('getAppValue')
 			->with('dav', 'invitation_link_recipients', 'yes')
 			->willReturn($config_setting);
@@ -294,6 +294,42 @@ class IMipPluginTest extends TestCase {
 		return $message;
 	}
 
+	public function testSendForReccurenceException() {
+		$this->config
+			->method('getAppValue')
+			->willReturn('yes');
+		$this->mailer->method('validateMailAddress')->willReturn(true);
+		$attrs = [];
+		$recipient = 'frodo@hobb.it';
+		$message = new Message();
+		$message->method = 'REQUEST';
+		$message->message = new VCalendar();
+		$message->message->add('VEVENT', array_merge([
+			'UID' => 'uid-1234',
+			'SEQUENCE' => 0,
+			'SUMMARY' => 'Fellowship meeting',
+			'DTSTART' => new \DateTime('2018-01-01 00:00:00'),
+		], $attrs));
+		$message->message->add('VEVENT', array_merge([
+			'UID' => 'uid-1234',
+			'SEQUENCE' => 0,
+			'SUMMARY' => 'Fellowship meeting exception',
+			'DTSTART' => new \DateTime('2018-01-02 00:00:00'),
+			'RECURRENCE-ID' => new \DateTime('2018-01-01 00:00:00')
+		], $attrs));
+		$message->message->VEVENT->add('ORGANIZER', 'mailto:gandalf@wiz.ard');
+		$message->message->VEVENT->add('ATTENDEE', 'mailto:'.$recipient, [ 'RSVP' => 'TRUE' ]);
+		$message->sender = 'mailto:gandalf@wiz.ard';
+		$message->senderName = 'Mr. Wizard';
+		$message->recipient = 'mailto:'.$recipient;
+
+		$this->_expectSend('frodo@hobb.it', true, true,'Invitation: Fellowship meeting exception');
+		$this->emailTemplate->expects($this->once())
+			->method('addHeading')
+			->with('Invitation');
+		$this->plugin->schedule($message);
+		$this->assertEquals('1.1', $message->getScheduleStatus());
+	}
 
 	private function _expectSend(string $recipient = 'frodo@hobb.it', bool $expectSend = true, bool $expectButtons = true, string $subject = 'Invitation: Fellowship meeting') {
 
@@ -322,14 +358,14 @@ class IMipPluginTest extends TestCase {
 			->method('send');
 
 		if ($expectButtons) {
-			$this->queryBuilder->expects($this->at(0))
+			$this->queryBuilder->expects($this->once())
 				->method('insert')
 				->with('calendar_invitations')
 				->willReturn($this->queryBuilder);
-			$this->queryBuilder->expects($this->at(8))
+			$this->queryBuilder->expects($this->once())
 				->method('values')
 				->willReturn($this->queryBuilder);
-			$this->queryBuilder->expects($this->at(9))
+			$this->queryBuilder->expects($this->once())
 				->method('execute');
 		} else {
 			$this->queryBuilder->expects($this->never())
