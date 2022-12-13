@@ -179,8 +179,11 @@ class IMipPlugin extends SabreIMipPlugin {
 			$senderName = $this->userManager->getDisplayName($this->userId);
 		}
 
-		$iterator = $iTipMessage->message->VEVENT->getIterator();
-		$vevent = null;
+		/** @var VEvent $vevent */
+		$vevent = $iTipMessage->message->VEVENT;
+		if($vevent !== null ) {
+			$iterator = $vevent->getIterator();
+		}
 		if($iterator->count() > 1) {
 			foreach ($iterator as $item) {
 				if($item->{'RECURRENCE-ID'} !== null) {
@@ -188,11 +191,6 @@ class IMipPlugin extends SabreIMipPlugin {
 					break;
 				}
 			}
-		}
-
-		if($vevent === null) {
-			/** @var VEvent $vevent */
-			$vevent = $iTipMessage->message->VEVENT;
 		}
 
 		$summary = $vevent->SUMMARY;
