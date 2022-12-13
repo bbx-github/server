@@ -181,15 +181,11 @@ class IMipPlugin extends SabreIMipPlugin {
 
 		/** @var VEvent $vevent */
 		$vevent = $iTipMessage->message->VEVENT;
-		if($vevent !== null ) {
-			$iterator = $vevent->getIterator();
-		}
-		if($iterator->count() > 1) {
-			foreach ($iterator as $item) {
-				if($item->{'RECURRENCE-ID'} !== null) {
-					$vevent = $item;
-					break;
-				}
+		$iterator = $vevent->getIterator();
+		foreach ($iterator as $item) {
+			if($item->{'RECURRENCE-ID'} !== null) {
+				$vevent = $item;
+				break;
 			}
 		}
 
