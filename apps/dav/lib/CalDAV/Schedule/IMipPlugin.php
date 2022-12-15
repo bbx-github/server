@@ -35,7 +35,6 @@
 namespace OCA\DAV\CalDAV\Schedule;
 
 use OCA\DAV\CalDAV\CalendarObject;
-use OCA\DAV\Events\CalendarObjectCreatedEvent;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Defaults;
 use OCP\IConfig;
@@ -56,9 +55,7 @@ use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component\VEvent;
 use Sabre\VObject\Component\VTimeZone;
 use Sabre\VObject\DateTimeParser;
-use Sabre\VObject\ElementList;
 use Sabre\VObject\ITip\Message;
-use Sabre\VObject\Node;
 use Sabre\VObject\Parameter;
 use Sabre\VObject\Property;
 use Sabre\VObject\Reader;
@@ -157,6 +154,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		if(!$node instanceof CalendarObject) {
 			return;
 		}
+		/** @var VCalendar $vCalendar */
 		$vCalendar = Reader::read($node->get());
 		$this->setVCalendar($vCalendar);
 	}
@@ -249,8 +247,6 @@ class IMipPlugin extends SabreIMipPlugin {
 				unset($oldEventComponents[$k]);
 			}
 		}
-
-
 
 		// we (should) have one event component left
 		// as the ITip\Broker creates one iTip message per change
