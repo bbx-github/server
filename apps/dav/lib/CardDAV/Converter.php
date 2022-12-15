@@ -53,7 +53,7 @@ class Converter {
 
 		$vCard = new VCard();
 		$vCard->VERSION = '3.0';
-		$vCard->UID = "$backendClassName:$uid";
+		$vCard->UID = md5("$backendClassName:$uid");
 	 	$vCard->add(new Text($vCard, 'X-NEXTCLOUD-UID', $uid));
 
 		$publish = false;
