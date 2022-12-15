@@ -164,10 +164,6 @@ class IMipPlugin extends SabreIMipPlugin {
 	private function processUnmodifieds(VEvent $event, array &$eventsToFilter): bool {
 		/** @var VEvent $component */
 		foreach ($eventsToFilter as $k => $component) {
-			if($component instanceof VTimeZone) {
-				unset($eventsToFilter[$k]);
-				continue;
-			}
 			$componentRecurId = isset($component->{'RECURRENCE-ID'}) ? $component->{'RECURRENCE-ID'}->getValue() : null;
 			$eventRecurId = isset($event->{'RECURRENCE-ID'}) ? $event->{'RECURRENCE-ID'}->getValue() : null;
 			$componentRRule = isset($component->RRULE) ? $component->RRULE->getValue() : null;
@@ -236,7 +232,13 @@ class IMipPlugin extends SabreIMipPlugin {
 		$newEvents = $iTipMessage->message;
 		$newEventComponents = $newEvents->getComponents();
 		$oldEvents = $this->getVCalendar();
-		$oldEventComponents = $oldEvents->getComponents() ?? null;
+		$oldEventComponents = $oldEvents === null ?: $oldEvents->getComponents();
+
+		foreach ($newEventComponents as $k => $event) {
+			if($event instanceof VTimeZone) {
+				unset($newEventComponents[$k]);
+			}
+		}
 
 		foreach ($oldEventComponents as $k => $event) {
 			if($event instanceof VTimeZone) {
@@ -248,13 +250,16 @@ class IMipPlugin extends SabreIMipPlugin {
 			}
 		}
 
+
+
 		// we (should) have one event component left
 		// as the ITip\Broker creates one iTip message per change
 		// and triggers the "schedule" event once per message
 		// we also might not have an old event as this could be a new
 		// invitation
 
-		$summary = $vevent->SUMMARY ?? '';
+		$vEvent = array_pop($newEventComponents);
+		$summary = $vEvent->SUMMARY ?? '';
 		$attendee = $this->getCurrentAttendee($iTipMessage);
 		$defaultLang = $this->l10nFactory->findGenericLanguage();
 		$lang = $this->getAttendeeLangOrDefault($defaultLang, $attendee);
@@ -263,12 +268,12 @@ class IMipPlugin extends SabreIMipPlugin {
 		$meetingAttendeeName = $recipientName ?: $recipient;
 		$meetingInviteeName = $senderName ?: $sender;
 
-		$meetingTitle = $vevent->SUMMARY;
-		$meetingDescription = $vevent->DESCRIPTION;
+		$meetingTitle = $vEvent->SUMMARY;
+		$meetingDescription = $vEvent->DESCRIPTION;
 
 
-		$meetingUrl = $vevent->URL;
-		$meetingLocation = $vevent->LOCATION;
+		$meetingUrl = $vEvent->URL;
+		$meetingLocation = $vEvent->LOCATION;
 
 		$defaultVal = '--';
 
@@ -307,7 +312,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$summary = ((string) $summary !== '') ? (string) $summary : $l10n->t('Untitled event');
 
 		$this->addSubjectAndHeading($template, $l10n, $method, $summary);
-		$this->addBulletList($template, $l10n, $vevent);
+		$this->addBulletList($template, $l10n, $vEvent);
 
 		// Only add response buttons to invitation requests: Fix Issue #11230
 		if (($method == self::METHOD_REQUEST) && $this->getAttendeeRsvpOrReqForParticipant($attendee)) {
@@ -352,17 +357,17 @@ class IMipPlugin extends SabreIMipPlugin {
 		);
 		$message->attach($attachment);
 
-//		try {
-//			$failed = $this->mailer->send($message);
-//			$iTipMessage->scheduleStatus = '1.1; Scheduling message is sent via iMip';
-//			if ($failed) {
-//				$this->logger->error('Unable to deliver message to {failed}', ['app' => 'dav', 'failed' => implode(', ', $failed)]);
-//				$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
-//			}
-//		} catch (\Exception $ex) {
-//			$this->logger->error($ex->getMessage(), ['app' => 'dav', 'exception' => $ex]);
-//			$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
-//		}
+		try {
+			$failed = $this->mailer->send($message);
+			$iTipMessage->scheduleStatus = '1.1; Scheduling message is sent via iMip';
+			if ($failed) {
+				$this->logger->error('Unable to deliver message to {failed}', ['app' => 'dav', 'failed' => implode(', ', $failed)]);
+				$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
+			}
+		} catch (\Exception $ex) {
+			$this->logger->error($ex->getMessage(), ['app' => 'dav', 'exception' => $ex]);
+			$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
+		}
 	}
 
 	/**
