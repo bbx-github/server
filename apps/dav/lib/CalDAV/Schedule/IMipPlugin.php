@@ -235,7 +235,8 @@ class IMipPlugin extends SabreIMipPlugin {
 
 		$newEvents = $iTipMessage->message;
 		$newEventComponents = $newEvents->getComponents();
-		$oldEventComponents = $this->getVCalendar()->getComponents();
+		$oldEvents = $this->getVCalendar();
+		$oldEventComponents = $oldEvents->getComponents() ?? null;
 
 		foreach ($oldEventComponents as $k => $event) {
 			if($event instanceof VTimeZone) {
@@ -247,8 +248,11 @@ class IMipPlugin extends SabreIMipPlugin {
 			}
 		}
 
-		// we (should) have one event component each (old and new) left
+		// we (should) have one event component left
 		// as the ITip\Broker creates one iTip message per change
+		// and triggers the "schedule" event once per message
+		// we also might not have an old event as this could be a new
+		// invitation
 
 		$summary = $vevent->SUMMARY ?? '';
 		$attendee = $this->getCurrentAttendee($iTipMessage);
