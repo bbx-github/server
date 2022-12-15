@@ -34,6 +34,8 @@
  */
 namespace OCA\DAV\CalDAV\Schedule;
 
+use OCA\DAV\CalDAV\CalendarObject;
+use OCA\DAV\Events\CalendarObjectCreatedEvent;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Defaults;
 use OCP\IConfig;
@@ -48,12 +50,18 @@ use OCP\Security\ISecureRandom;
 use OCP\Util;
 use Psr\Log\LoggerInterface;
 use Sabre\CalDAV\Schedule\IMipPlugin as SabreIMipPlugin;
+use Sabre\DAV;
+use Sabre\DAV\INode;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component\VEvent;
+use Sabre\VObject\Component\VTimeZone;
 use Sabre\VObject\DateTimeParser;
+use Sabre\VObject\ElementList;
 use Sabre\VObject\ITip\Message;
+use Sabre\VObject\Node;
 use Sabre\VObject\Parameter;
 use Sabre\VObject\Property;
+use Sabre\VObject\Reader;
 use Sabre\VObject\Recur\EventIterator;
 
 /**
@@ -110,6 +118,7 @@ class IMipPlugin extends SabreIMipPlugin {
 	public const METHOD_REPLY = 'reply';
 	public const METHOD_CANCEL = 'cancel';
 	public const IMIP_INDENT = 15; // Enough for the length of all body bullet items, in all languages
+	private ?VCalendar $vCalendar = null;
 
 	public function __construct(IConfig $config, IMailer $mailer,
 								LoggerInterface $logger,
@@ -129,6 +138,51 @@ class IMipPlugin extends SabreIMipPlugin {
 		$this->db = $db;
 		$this->defaults = $defaults;
 		$this->userManager = $userManager;
+	}
+
+	public function initialize(DAV\Server $server) {
+		parent::initialize($server);
+		$server->on('beforeWriteContent', [$this, 'beforeWriteContent'], 10);
+	}
+
+	/**
+	 * Check quota before writing content
+	 *
+	 * @param string $uri target file URI
+	 * @param INode $node Sabre Node
+	 * @param resource $data data
+	 * @param bool $modified modified
+	 */
+	public function beforeWriteContent($uri, INode $node, $data, $modified) {
+		if(!$node instanceof CalendarObject) {
+			return;
+		}
+		$vCalendar = Reader::read($node->get());
+		$this->setVCalendar($vCalendar);
+	}
+
+	private function processUnmodifieds(VEvent $event, array &$eventsToFilter): bool {
+		/** @var VEvent $component */
+		foreach ($eventsToFilter as $k => $component) {
+			if($component instanceof VTimeZone) {
+				unset($eventsToFilter[$k]);
+				continue;
+			}
+			$componentRecurId = isset($component->{'RECURRENCE-ID'}) ? $component->{'RECURRENCE-ID'}->getValue() : null;
+			$eventRecurId = isset($event->{'RECURRENCE-ID'}) ? $event->{'RECURRENCE-ID'}->getValue() : null;
+			$componentRRule = isset($component->RRULE) ? $component->RRULE->getValue() : null;
+			$eventRRule = isset($event->RRULE) ? $event->RRULE->getValue() : null;
+			if(
+				$component->{'LAST-MODIFIED'}->getValue() === $event->{'LAST-MODIFIED'}->getValue()
+				&& $component->SEQUENCE->getValue() === $event->SEQUENCE->getValue()
+				&& $componentRRule === $eventRRule
+				&& $componentRecurId === $eventRecurId
+			) {
+				unset($eventsToFilter[$k]);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -179,15 +233,22 @@ class IMipPlugin extends SabreIMipPlugin {
 			$senderName = $this->userManager->getDisplayName($this->userId);
 		}
 
-		/** @var VEvent $vevent */
-		$vevent = $iTipMessage->message->VEVENT;
-		$iterator = $vevent->getIterator();
-		foreach ($iterator as $item) {
-			if($item->{'RECURRENCE-ID'} !== null) {
-				$vevent = $item;
-				break;
+		$newEvents = $iTipMessage->message;
+		$newEventComponents = $newEvents->getComponents();
+		$oldEventComponents = $this->getVCalendar()->getComponents();
+
+		foreach ($oldEventComponents as $k => $event) {
+			if($event instanceof VTimeZone) {
+				unset($oldEventComponents[$k]);
+				continue;
+			}
+			if($this->processUnmodifieds($event, $newEventComponents)) {
+				unset($oldEventComponents[$k]);
 			}
 		}
+
+		// we (should) have one event component each (old and new) left
+		// as the ITip\Broker creates one iTip message per change
 
 		$summary = $vevent->SUMMARY ?? '';
 		$attendee = $this->getCurrentAttendee($iTipMessage);
@@ -287,17 +348,17 @@ class IMipPlugin extends SabreIMipPlugin {
 		);
 		$message->attach($attachment);
 
-		try {
-			$failed = $this->mailer->send($message);
-			$iTipMessage->scheduleStatus = '1.1; Scheduling message is sent via iMip';
-			if ($failed) {
-				$this->logger->error('Unable to deliver message to {failed}', ['app' => 'dav', 'failed' => implode(', ', $failed)]);
-				$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
-			}
-		} catch (\Exception $ex) {
-			$this->logger->error($ex->getMessage(), ['app' => 'dav', 'exception' => $ex]);
-			$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
-		}
+//		try {
+//			$failed = $this->mailer->send($message);
+//			$iTipMessage->scheduleStatus = '1.1; Scheduling message is sent via iMip';
+//			if ($failed) {
+//				$this->logger->error('Unable to deliver message to {failed}', ['app' => 'dav', 'failed' => implode(', ', $failed)]);
+//				$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
+//			}
+//		} catch (\Exception $ex) {
+//			$this->logger->error($ex->getMessage(), ['app' => 'dav', 'exception' => $ex]);
+//			$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
+//		}
 	}
 
 	/**
@@ -715,4 +776,20 @@ class IMipPlugin extends SabreIMipPlugin {
 
 		return $token;
 	}
+
+	/**
+	 * @return ?VCalendar
+	 */
+	public function getVCalendar(): ?VCalendar {
+		return $this->vCalendar;
+	}
+
+	/**
+	 * @param ?VCalendar $vCalendar
+	 */
+	public function setVCalendar(?VCalendar $vCalendar): void {
+		$this->vCalendar = $vCalendar;
+	}
+
+
 }
