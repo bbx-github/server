@@ -227,7 +227,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$oldEvents = $this->getVCalendar();
 		$oldEventComponents = $oldEvents === null ?: $oldEvents->getComponents();
 
-		if(!empty($oldEventComponents)) {
+		if(!is_array($oldEventComponents) || !empty($oldEventComponents)) {
 			foreach ($oldEventComponents as $k => $event) {
 				if($event instanceof VTimeZone) {
 					unset($oldEventComponents[$k]);
