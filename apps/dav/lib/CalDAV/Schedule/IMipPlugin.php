@@ -380,7 +380,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$template = $this->mailer->createEMailTemplate('dav.calendarInvite.' . $method, $data);
 		$template->addHeader();
 
-		$this->addSubjectAndHeading($template, $l10n, $method, $attendee, $data['invitee_name'], $data['meeting_title_plain']);
+		$this->addSubjectAndHeading($template, $l10n, $method, $data['invitee_name'], $data['meeting_title_plain']);
 		$this->addBulletList($template, $l10n, $vEvent, $data);
 
 		// Only add response buttons to invitation requests: Fix Issue #11230
@@ -663,30 +663,30 @@ class IMipPlugin extends SabreIMipPlugin {
 	 * @param string $summary
 	 */
 	private function addSubjectAndHeading(IEMailTemplate $template, IL10N $l10n,
-										  $method, Property $attendee, $sender, $summary) {
+										  $method, $sender, $summary) {
 		if ($method === self::METHOD_CANCEL) {
 			// TRANSLATORS Subject for email, when an invitation is cancelled. Ex: "Cancelled: {{Event Name}}"
 			$template->setSubject($l10n->t('Cancelled: %1$s', [$summary]));
 			$template->addHeading($l10n->t('"%1$s" has been canceled', [$summary]));
 		} elseif ($method === self::METHOD_REPLY) {
-			// TRANSLATORS Subject for email, when an invitation is replied to. Ex: "Re: {{Event Name}}"
-			// Technically, the sender should be the attendee here (famous last words)
-			switch (strtolower($attendee->offsetGet('PARTSTAT'))) {
-				case 'accepted':
-					$partstat = $l10n->t('%1$s has accepted your invitation', [$sender]);
-					break;
-				case 'tentative':
-					$partstat = $l10n->t('%1$s has tentatively accepted your invitation', [$sender]);
-					break;
-				case 'declined':
-					$partstat = $l10n->t('%1$s has declined your invitation', [$sender]);
-					break;
-				default:
-					$partstat = $l10n->t('%1$s has responded your invitation', [$sender]);
-					break;
-			}
+//			// TRANSLATORS Subject for email, when an invitation is replied to. Ex: "Re: {{Event Name}}"
+//			// Technically, the sender should be the attendee here (famous last words)
+//			switch (strtolower($attendee->offsetGet('PARTSTAT'))) {
+//				case 'accepted':
+//					$partstat = $l10n->t('%1$s has accepted your invitation', [$sender]);
+//					break;
+//				case 'tentative':
+//					$partstat = $l10n->t('%1$s has tentatively accepted your invitation', [$sender]);
+//					break;
+//				case 'declined':
+//					$partstat = $l10n->t('%1$s has declined your invitation', [$sender]);
+//					break;
+//				default:
+//					$partstat = $l10n->t('%1$s has responded your invitation', [$sender]);
+//					break;
+//			}
 			$template->setSubject($l10n->t('Re: %1$s', [$summary]));
-			$template->addHeading($partstat);
+			$template->addHeading($l10n->t('%1$s has responded your invitation', [$sender]);
 		} else {
 			// TRANSLATORS Subject for email, when an invitation is sent. Ex: "Invitation: {{Event Name}}"
 			$template->setSubject($l10n->t('Invitation: %1$s', [$summary]));
