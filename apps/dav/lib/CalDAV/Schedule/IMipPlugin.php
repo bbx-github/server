@@ -686,7 +686,7 @@ class IMipPlugin extends SabreIMipPlugin {
 //					break;
 //			}
 			$template->setSubject($l10n->t('Re: %1$s', [$summary]));
-			$template->addHeading($l10n->t('%1$s has responded your invitation', [$sender]);
+			$template->addHeading($l10n->t('%1$s has responded your invitation', [$sender]));
 		} else {
 			// TRANSLATORS Subject for email, when an invitation is sent. Ex: "Invitation: {{Event Name}}"
 			$template->setSubject($l10n->t('Invitation: %1$s', [$summary]));
