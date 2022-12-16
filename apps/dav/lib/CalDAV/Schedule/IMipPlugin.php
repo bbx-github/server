@@ -167,8 +167,10 @@ class IMipPlugin extends SabreIMipPlugin {
 			$eventRRule = isset($event->RRULE) ? $event->RRULE->getValue() : null;
 			$componentSequence = isset($component->SEQUENCE) ? $component->SEQUENCE->getValue() : null;
 			$eventSequence = isset($event->SEQUENCE) ? $event->SEQUENCE->getValue() : null;
+			$componentLastModified = isset($component->{'LAST-MODIFIED'}) ? $component->{'LAST-MODIFIED'}->getValue() : null;
+			$eventLastModified = isset($event->{'LAST-MODIFIED'}) ? $event->{'LAST-MODIFIED'}->getValue() : null;
 			if(
-				$component->{'LAST-MODIFIED'}->getValue() === $event->{'LAST-MODIFIED'}->getValue()
+				$componentLastModified === $eventLastModified
 				&&$componentSequence === $eventSequence
 				&& $componentRRule === $eventRRule
 				&& $componentRecurId === $eventRecurId
@@ -378,7 +380,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$template = $this->mailer->createEMailTemplate('dav.calendarInvite.' . $method, $data);
 		$template->addHeader();
 
-		$this->addSubjectAndHeading($template, $l10n, $method, $data['invitee_name'], $data['meeting_title_plain']);
+		$this->addSubjectAndHeading($template, $l10n, $method, $attendee, $data['invitee_name'], $data['meeting_title_plain']);
 		$this->addBulletList($template, $l10n, $vEvent, $data);
 
 		// Only add response buttons to invitation requests: Fix Issue #11230
