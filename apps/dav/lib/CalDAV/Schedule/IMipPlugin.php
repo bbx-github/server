@@ -110,7 +110,6 @@ class IMipPlugin extends SabreIMipPlugin {
 	private $userManager;
 
 	public const MAX_DATE = '2038-01-01';
-
 	public const METHOD_REQUEST = 'request';
 	public const METHOD_REPLY = 'reply';
 	public const METHOD_CANCEL = 'cancel';
@@ -166,9 +165,11 @@ class IMipPlugin extends SabreIMipPlugin {
 			$eventRecurId = isset($event->{'RECURRENCE-ID'}) ? $event->{'RECURRENCE-ID'}->getValue() : null;
 			$componentRRule = isset($component->RRULE) ? $component->RRULE->getValue() : null;
 			$eventRRule = isset($event->RRULE) ? $event->RRULE->getValue() : null;
+			$componentSequence = isset($component->SEQUENCE) ? $component->SEQUENCE->getValue() : null;
+			$eventSequence = isset($event->SEQUENCE) ? $event->SEQUENCE->getValue() : null;
 			if(
 				$component->{'LAST-MODIFIED'}->getValue() === $event->{'LAST-MODIFIED'}->getValue()
-				&& $component->SEQUENCE->getValue() === $event->SEQUENCE->getValue()
+				&&$componentSequence === $eventSequence
 				&& $componentRRule === $eventRRule
 				&& $componentRecurId === $eventRecurId
 			) {
@@ -186,7 +187,6 @@ class IMipPlugin extends SabreIMipPlugin {
 	 * @return void
 	 */
 	public function schedule(Message $iTipMessage) {
-
 		// Not sending any emails if the system considers the update
 		// insignificant.
 		if (!$iTipMessage->significantChange) {
@@ -196,11 +196,7 @@ class IMipPlugin extends SabreIMipPlugin {
 			return;
 		}
 
-		if (parse_url($iTipMessage->sender, PHP_URL_SCHEME) !== 'mailto') {
-			return;
-		}
-
-		if (parse_url($iTipMessage->recipient, PHP_URL_SCHEME) !== 'mailto') {
+		if (parse_url($iTipMessage->sender, PHP_URL_SCHEME) !== 'mailto' || parse_url($iTipMessage->recipient, PHP_URL_SCHEME) !== 'mailto') {
 			return;
 		}
 
@@ -212,7 +208,6 @@ class IMipPlugin extends SabreIMipPlugin {
 		}
 
 		// Strip off mailto:
-		$sender = substr($iTipMessage->sender, 7);
 		$recipient = substr($iTipMessage->recipient, 7);
 		if ($recipient === false || !$this->mailer->validateMailAddress($recipient)) {
 			// Nothing to send if the recipient doesn't have a valid email address
@@ -220,17 +215,8 @@ class IMipPlugin extends SabreIMipPlugin {
 			return;
 		}
 
-		$senderName = $iTipMessage->senderName ?: null;
-		$recipientName = $iTipMessage->recipientName ?: null;
-
-		if ($senderName === null || empty(trim($senderName))) {
-			$senderName = $this->userManager->getDisplayName($this->userId);
-		}
-
 		$newEvents = $iTipMessage->message;
 		$newEventComponents = $newEvents->getComponents();
-		$oldEvents = $this->getVCalendar();
-		$oldEventComponents = $oldEvents === null ?: $oldEvents->getComponents();
 
 		foreach ($newEventComponents as $k => $event) {
 			if($event instanceof VTimeZone) {
@@ -238,58 +224,145 @@ class IMipPlugin extends SabreIMipPlugin {
 			}
 		}
 
-		foreach ($oldEventComponents as $k => $event) {
-			if($event instanceof VTimeZone) {
-				unset($oldEventComponents[$k]);
-				continue;
+		$oldEvents = $this->getVCalendar();
+		$oldEventComponents = $oldEvents === null ?: $oldEvents->getComponents();
+
+		if(!empty($oldEventComponents)) {
+			foreach ($oldEventComponents as $k => $event) {
+				if($event instanceof VTimeZone) {
+					unset($oldEventComponents[$k]);
+					continue;
+				}
+				if($this->processUnmodifieds($event, $newEventComponents)) {
+					unset($oldEventComponents[$k]);
+				}
 			}
-			if($this->processUnmodifieds($event, $newEventComponents)) {
-				unset($oldEventComponents[$k]);
-			}
+		}
+
+		// No changed events after all - this shouldn't happen if there is significant change yet here we are
+		// The scheduling status is debatable
+		// @todo handle this error case
+		if(!is_array($newEventComponents) || empty($newEventComponents)) {
+			$iTipMessage->scheduleStatus = '1.0;We got the message, but it\'s not significant enough to warrant an email';
+			return;
 		}
 
 		// we (should) have one event component left
 		// as the ITip\Broker creates one iTip message per change
 		// and triggers the "schedule" event once per message
 		// we also might not have an old event as this could be a new
-		// invitation
-
+		// invitation, or a new recurrence exception
+		/** @var VEvent $vEvent */
 		$vEvent = array_pop($newEventComponents);
-		$summary = $vEvent->SUMMARY ?? '';
+		/** @var VEvent $oldVevent */
+		$oldVevent = !empty($oldEventComponents) && is_array($oldEventComponents) ? array_pop($oldEventComponents) : null;
+		$this->sendEmail($vEvent, $iTipMessage, $lastOccurrence, $oldVevent);
+	}
+
+	/**
+	 * @param VEvent $vEvent
+	 * @param IL10N $l10n
+	 * @param VEvent|null $oldVEvent
+	 * @return array
+	 */
+	private function buildBodyData(VEvent $vEvent, IL10N $l10n, ?VEvent $oldVEvent): array {
+		$defaultVal = '';
+		$strikethrough = "<span style='text-decoration: line-through'>%s</span><br />%s";
+
+		$oldMeetingWhen = isset($oldVEvent) ? $this->generateWhenString($l10n, $oldVEvent) : null;
+		$oldSummary = isset($oldVEvent->SUMMARY) && (string)$oldVEvent->SUMMARY !== '' ? (string)$oldVEvent->SUMMARY : $l10n->t('Untitled event');;
+		$oldDescription = isset($oldVEvent->DESCRIPTION) && (string)$oldVEvent->DESCRIPTION !== '' ? (string)$oldVEvent->DESCRIPTION : $defaultVal;
+		$oldUrl = isset($oldVEvent->URL) && (string)$oldVEvent->URL !== '' ? (string)$oldVEvent->URL : $defaultVal;
+		$oldLocation = isset($oldVEvent->LOCATION) && (string)$oldVEvent->LOCATION !== '' ? (string)$oldVEvent->LOCATION : $defaultVal;
+
+		$newMeetingWhen = $this->generateWhenString($l10n, $vEvent);
+		$newSummary = isset($vEvent->SUMMARY) && (string)$vEvent->SUMMARY !== '' ? (string)$vEvent->SUMMARY : $l10n->t('Untitled event');;
+		$newDescription = isset($vEvent->DESCRIPTION) && (string)$vEvent->DESCRIPTION !== '' ? (string)$vEvent->DESCRIPTION : $defaultVal;
+		$newUrl = isset($vEvent->URL) && (string)$vEvent->URL !== '' ? sprintf('<a href="%1$s">%1$s</a>', $vEvent->URL) : $defaultVal;
+		$newLocation = isset($vEvent->LOCATION) && (string)$vEvent->LOCATION !== ''  ? (string)$vEvent->LOCATION : $defaultVal;
+
+		$data = [];
+		$data['meeting_when'] = ($oldMeetingWhen !== $newMeetingWhen && $oldMeetingWhen !== null) ? sprintf($strikethrough, $oldMeetingWhen, $newMeetingWhen) : $newMeetingWhen;
+		$data['meeting_when_plain'] = $newMeetingWhen;
+		$data['meeting_title'] = ($oldSummary !== $newSummary) ? sprintf($strikethrough, $oldSummary, $newSummary) : $newSummary;
+		$data['meeting_title_plain'] = $newSummary;
+		$data['meeting_description'] = ($oldDescription !== $newDescription) ? sprintf($strikethrough, $oldDescription, $newDescription) : $newDescription;
+		$data['meeting_description_plain'] = $newDescription;
+		$data['meeting_url'] = ($oldUrl !== $newUrl) ? sprintf($strikethrough, $oldUrl, $newUrl) : $newUrl;
+		$data['meeting_url_plain'] = isset($vEvent->URL) ? (string)$vEvent->URL : '';
+		$data['meeting_location'] = ($oldLocation !== $newLocation) ? sprintf($strikethrough, $oldLocation, $newLocation) : $newLocation;
+		$data['meeting_location_plain'] = $newLocation;
+		return $data;
+	}
+
+	/**
+	 * @param VEvent $vEvent
+	 * @param IL10N $l10n
+	 * @return array
+	 */
+	private function buildCancelledBodyData(VEvent $vEvent, IL10N $l10n): array {
+		$defaultVal = '';
+		$strikethrough = "<span style='text-decoration: line-through'>%$1s</span>";
+
+		$newMeetingWhen = $this->generateWhenString($l10n, $vEvent);
+		$newSummary = isset($vEvent->SUMMARY) && (string)$vEvent->SUMMARY !== '' ? (string)$vEvent->SUMMARY : $l10n->t('Untitled event');;
+		$newDescription = isset($vEvent->DESCRIPTION) && (string)$vEvent->DESCRIPTION !== '' ? (string)$vEvent->DESCRIPTION : $defaultVal;
+		$newUrl = isset($vEvent->URL) && (string)$vEvent->URL !== '' ? sprintf('<a href="%1$s">%1$s</a>', $vEvent->URL) : $defaultVal;
+		$newLocation = isset($vEvent->LOCATION) && (string)$vEvent->LOCATION !== ''  ? (string)$vEvent->LOCATION : $defaultVal;
+
+		$data = [];
+		$data['meeting_when'] = $newMeetingWhen === '' ?: sprintf($strikethrough, $newMeetingWhen);
+		$data['meeting_when_plain'] = $newMeetingWhen;
+		$data['meeting_title'] = sprintf($strikethrough, $newSummary);
+		$data['meeting_title_plain'] = $newSummary !== '' ?: $l10n->t('Untitled event');
+		$data['meeting_description'] = $newDescription === '' ?: sprintf($strikethrough, $newDescription);
+		$data['meeting_description_plain'] = $newDescription;
+		$data['meeting_url'] =  $newUrl === '' ?:  sprintf($strikethrough, $newUrl);
+		$data['meeting_url_plain'] = isset($vEvent->URL) ? (string)$vEvent->URL : '';
+		$data['meeting_location'] = $newLocation === '' ?:  sprintf($strikethrough, $newLocation);
+		$data['meeting_location_plain'] = $newLocation;
+		return $data;
+	}
+
+
+	/**
+	 * @param VEvent $vEvent
+	 * @param Message $iTipMessage
+	 * @param int $lastOccurrence
+	 * @return void
+	 */
+	private function sendEmail(VEvent $vEvent, Message $iTipMessage, int $lastOccurrence, ?VEvent $oldVEvent = null): void {
 		$attendee = $this->getCurrentAttendee($iTipMessage);
 		$defaultLang = $this->l10nFactory->findGenericLanguage();
 		$lang = $this->getAttendeeLangOrDefault($defaultLang, $attendee);
 		$l10n = $this->l10nFactory->get('dav', $lang);
 
-		$meetingAttendeeName = $recipientName ?: $recipient;
-		$meetingInviteeName = $senderName ?: $sender;
-
-		$meetingTitle = $vEvent->SUMMARY;
-		$meetingDescription = $vEvent->DESCRIPTION;
-
-
-		$meetingUrl = $vEvent->URL;
-		$meetingLocation = $vEvent->LOCATION;
-
-		$defaultVal = '--';
-
-		$method = self::METHOD_REQUEST;
 		switch (strtolower($iTipMessage->method)) {
 			case self::METHOD_REPLY:
 				$method = self::METHOD_REPLY;
+				$data = $this->buildBodyData($vEvent, $l10n, $oldVEvent);
 				break;
 			case self::METHOD_CANCEL:
 				$method = self::METHOD_CANCEL;
+				$data = $this->buildCancelledBodyData($vEvent, $l10n);
+				break;
+			default:
+				$method = self::METHOD_REQUEST;
+				$data = $this->buildBodyData($vEvent, $l10n, $oldVEvent);
 				break;
 		}
 
-		$data = [
-			'attendee_name' => (string)$meetingAttendeeName ?: $defaultVal,
-			'invitee_name' => (string)$meetingInviteeName ?: $defaultVal,
-			'meeting_title' => (string)$meetingTitle ?: $defaultVal,
-			'meeting_description' => (string)$meetingDescription ?: $defaultVal,
-			'meeting_url' => (string)$meetingUrl ?: $defaultVal,
-		];
+		$recipient = substr($iTipMessage->recipient, 7);
+		$recipientName = $iTipMessage->recipientName ?: null;
+
+		$sender = substr($iTipMessage->sender, 7);
+		$senderName = $iTipMessage->senderName ?: null;
+		if ($senderName === null || empty(trim($senderName))) {
+			$senderName = $this->userManager->getDisplayName($this->userId);
+		}
+
+		$data['attendee_name'] = ($recipientName ?: $recipient);
+		$data['invitee_name'] = ($senderName ?: $sender);
 
 		$fromEMail = Util::getDefaultEmailAddress('invitations-noreply');
 		$fromName = $l10n->t('%1$s via %2$s', [$senderName ?? $this->userId, $this->defaults->getName()]);
@@ -305,10 +378,8 @@ class IMipPlugin extends SabreIMipPlugin {
 		$template = $this->mailer->createEMailTemplate('dav.calendarInvite.' . $method, $data);
 		$template->addHeader();
 
-		$summary = ((string) $summary !== '') ? (string) $summary : $l10n->t('Untitled event');
-
-		$this->addSubjectAndHeading($template, $l10n, $method, $summary);
-		$this->addBulletList($template, $l10n, $vEvent);
+		$this->addSubjectAndHeading($template, $l10n, $method, $data['invitee_name'], $data['meeting_title_plain']);
+		$this->addBulletList($template, $l10n, $vEvent, $data);
 
 		// Only add response buttons to invitation requests: Fix Issue #11230
 		if (($method == self::METHOD_REQUEST) && $this->getAttendeeRsvpOrReqForParticipant($attendee)) {
@@ -332,13 +403,13 @@ class IMipPlugin extends SabreIMipPlugin {
 			** To suppress URLs entirely, set invitation_link_recipients to boolean "no".
 			*/
 
-			$recipientDomain = substr(strrchr($recipient, "@"), 1);
+			$recipientDomain = substr(strrchr($recipient, '@'), 1);
 			$invitationLinkRecipients = explode(',', preg_replace('/\s+/', '', strtolower($this->config->getAppValue('dav', 'invitation_link_recipients', 'yes'))));
 
 			if (strcmp('yes', $invitationLinkRecipients[0]) === 0
-				 || in_array(strtolower($recipient), $invitationLinkRecipients)
-				 || in_array(strtolower($recipientDomain), $invitationLinkRecipients)) {
-				$this->addResponseButtons($template, $l10n, $iTipMessage, $lastOccurrence);
+				|| in_array(strtolower($recipient), $invitationLinkRecipients)
+				|| in_array(strtolower($recipientDomain), $invitationLinkRecipients)) {
+				$this->addResponseButtons($template, $l10n, $iTipMessage, $vEvent, $lastOccurrence);
 			}
 		}
 
@@ -346,9 +417,21 @@ class IMipPlugin extends SabreIMipPlugin {
 
 		$message->useTemplate($template);
 
+		// Let's clone all components of the iTip Calendar so we get a correct iMip Email
+		// We only want the single component that was modifed as a VEVENT
+		$vCalendar = new VCalendar();
+		$vCalendar->add('METHOD', $iTipMessage->method);
+		foreach ($iTipMessage->message->getComponents() as $component) {
+			if($component instanceof VEvent) {
+				continue;
+			}
+			$vCalendar->add(clone $component);
+		}
+		$vCalendar->add($vEvent);
+
 		$attachment = $this->mailer->createAttachment(
-			$iTipMessage->message->serialize(),
-			'event.ics',// TODO(leon): Make file name unique, e.g. add event id
+			$vCalendar->serialize(),
+			'event.ics',
 			'text/calendar; method=' . $iTipMessage->method
 		);
 		$message->attach($attachment);
@@ -578,19 +661,34 @@ class IMipPlugin extends SabreIMipPlugin {
 	 * @param string $summary
 	 */
 	private function addSubjectAndHeading(IEMailTemplate $template, IL10N $l10n,
-										  $method, $summary) {
+										  $method, Property $attendee, $sender, $summary) {
 		if ($method === self::METHOD_CANCEL) {
 			// TRANSLATORS Subject for email, when an invitation is cancelled. Ex: "Cancelled: {{Event Name}}"
 			$template->setSubject($l10n->t('Cancelled: %1$s', [$summary]));
-			$template->addHeading($l10n->t('Invitation canceled'));
+			$template->addHeading($l10n->t('"%1$s" has been canceled', [$summary]));
 		} elseif ($method === self::METHOD_REPLY) {
-			// TRANSLATORS Subject for email, when an invitation is updated. Ex: "Re: {{Event Name}}"
+			// TRANSLATORS Subject for email, when an invitation is replied to. Ex: "Re: {{Event Name}}"
+			// Technically, the sender should be the attendee here (famous last words)
+			switch (strtolower($attendee->offsetGet('PARTSTAT'))) {
+				case 'accepted':
+					$partstat = $l10n->t('%1$s has accepted your invitation', [$sender]);
+					break;
+				case 'tentative':
+					$partstat = $l10n->t('%1$s has tentatively accepted your invitation', [$sender]);
+					break;
+				case 'declined':
+					$partstat = $l10n->t('%1$s has declined your invitation', [$sender]);
+					break;
+				default:
+					$partstat = $l10n->t('%1$s has responded your invitation', [$sender]);
+					break;
+			}
 			$template->setSubject($l10n->t('Re: %1$s', [$summary]));
-			$template->addHeading($l10n->t('Invitation updated'));
+			$template->addHeading($partstat);
 		} else {
 			// TRANSLATORS Subject for email, when an invitation is sent. Ex: "Invitation: {{Event Name}}"
 			$template->setSubject($l10n->t('Invitation: %1$s', [$summary]));
-			$template->addHeading($l10n->t('Invitation'));
+			$template->addHeading($l10n->t('%1$s would like to invite you to "%2$s"', [$sender, $summary]));
 		}
 	}
 
@@ -599,36 +697,29 @@ class IMipPlugin extends SabreIMipPlugin {
 	 * @param IL10N $l10n
 	 * @param VEVENT $vevent
 	 */
-	private function addBulletList(IEMailTemplate $template, IL10N $l10n, $vevent) {
-		if ($vevent->SUMMARY) {
-			$template->addBodyListItem($vevent->SUMMARY, $l10n->t('Title:'),
-				$this->getAbsoluteImagePath('caldav/title.png'),'','',self::IMIP_INDENT);
+	private function addBulletList(IEMailTemplate $template, IL10N $l10n, VEvent $vevent, $data) {
+		$template->addBodyListItem(
+			$data['meeting_title'], $l10n->t('Title:'),
+			$this->getAbsoluteImagePath('caldav/title.png'), $data['meeting_title_plain'], '', self::IMIP_INDENT);
+		if ($data['meeting_when'] !== '') {
+			$template->addBodyListItem($data['meeting_when'], $l10n->t('Time:'),
+				$this->getAbsoluteImagePath('caldav/time.png'),$data['meeting_when_plain'],'',self::IMIP_INDENT);
 		}
-		$meetingWhen = $this->generateWhenString($l10n, $vevent);
-		if ($meetingWhen) {
-			$template->addBodyListItem($meetingWhen, $l10n->t('Time:'),
-				$this->getAbsoluteImagePath('caldav/time.png'),'','',self::IMIP_INDENT);
+		if ($data['meeting_location'] !== '') {
+			$template->addBodyListItem($data['meeting_location'], $l10n->t('Location:'),
+				$this->getAbsoluteImagePath('caldav/location.png'),$data['meeting_location_plain'],'',self::IMIP_INDENT);
 		}
-		if ($vevent->LOCATION) {
-			$template->addBodyListItem($vevent->LOCATION, $l10n->t('Location:'),
-				$this->getAbsoluteImagePath('caldav/location.png'),'','',self::IMIP_INDENT);
-		}
-		if ($vevent->URL) {
-			$url = $vevent->URL->getValue();
-			$template->addBodyListItem(sprintf('<a href="%s">%s</a>',
-					htmlspecialchars($url),
-					htmlspecialchars($url)),
-				$l10n->t('Link:'),
-				$this->getAbsoluteImagePath('caldav/link.png'),
-				$url,'',self::IMIP_INDENT);
+		if ($data['meeting_url'] !== '') {
+			$template->addBodyListItem($data['meeting_url'], $l10n->t('Link:'),
+				$this->getAbsoluteImagePath('caldav/link.png'), $data['meeting_url_plain'], '',self::IMIP_INDENT);
 		}
 
 		$this->addAttendees($template, $l10n, $vevent);
 
 		/* Put description last, like an email body, since it can be arbitrarily long */
-		if ($vevent->DESCRIPTION) {
-			$template->addBodyListItem($vevent->DESCRIPTION->getValue(), $l10n->t('Description:'),
-				$this->getAbsoluteImagePath('caldav/description.png'),'','',self::IMIP_INDENT);
+		if ($data['meeting_description']) {
+			$template->addBodyListItem($data['meeting_description'], $l10n->t('Description:'),
+				$this->getAbsoluteImagePath('caldav/description.png'),$data['meeting_description_plain'],'',self::IMIP_INDENT);
 		}
 	}
 
@@ -698,8 +789,8 @@ class IMipPlugin extends SabreIMipPlugin {
 				$attendeeHTML .= ' ✔︎';
 				$attendeeText .= ' ✔︎';
 			}
-			array_push($attendeesHTML, $attendeeHTML);
-			array_push($attendeesText, $attendeeText);
+			$attendeesHTML[] = $attendeeHTML;
+			$attendeesText[] = $attendeeText;
 		}
 
 		$template->addBodyListItem(implode('<br/>',$attendeesHTML), $l10n->t('Attendees:'),
@@ -713,9 +804,8 @@ class IMipPlugin extends SabreIMipPlugin {
 	 * @param Message $iTipMessage
 	 * @param int $lastOccurrence
 	 */
-	private function addResponseButtons(IEMailTemplate $template, IL10N $l10n,
-										Message $iTipMessage, $lastOccurrence) {
-		$token = $this->createInvitationToken($iTipMessage, $lastOccurrence);
+	private function addResponseButtons(IEMailTemplate $template, IL10N $l10n, Message $iTipMessage, VEvent $vevent, $lastOccurrence) {
+		$token = $this->createInvitationToken($iTipMessage, $vevent, $lastOccurrence);
 
 		$template->addBodyButtonGroup(
 			$l10n->t('Accept'),
@@ -754,11 +844,9 @@ class IMipPlugin extends SabreIMipPlugin {
 	 * @param int $lastOccurrence
 	 * @return string
 	 */
-	private function createInvitationToken(Message $iTipMessage, $lastOccurrence):string {
+	private function createInvitationToken(Message $iTipMessage, VEvent $vevent, $lastOccurrence):string {
 		$token = $this->random->generate(60, ISecureRandom::CHAR_ALPHANUMERIC);
 
-		/** @var VEvent $vevent */
-		$vevent = $iTipMessage->message->VEVENT;
 		$attendee = $iTipMessage->recipient;
 		$organizer = $iTipMessage->sender;
 		$sequence = $iTipMessage->sequence;
@@ -795,6 +883,5 @@ class IMipPlugin extends SabreIMipPlugin {
 	public function setVCalendar(?VCalendar $vCalendar): void {
 		$this->vCalendar = $vCalendar;
 	}
-
 
 }
