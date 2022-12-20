@@ -28,7 +28,6 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\Collaboration\Reference\IDiscoverableReferenceProvider;
 use OCP\Collaboration\Reference\IReferenceManager;
-use OCP\Collaboration\Reference\ISearchableReferenceProvider;
 use OCP\IRequest;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
