@@ -31,8 +31,6 @@ use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IInitialStateService;
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 
 class RenderReferenceEventListener implements IEventListener {
 	private IReferenceManager $manager;
@@ -55,12 +53,7 @@ class RenderReferenceEventListener implements IEventListener {
 			return;
 		}
 
-		try {
-			$providers = $this->manager->getDiscoverableProviders();
-		} catch (ContainerExceptionInterface | NotFoundExceptionInterface $e) {
-			return;
-		}
-
+		$providers = $this->manager->getDiscoverableProviders();
 		$jsonProviders = array_map(static function (IDiscoverableReferenceProvider $provider) {
 			return $provider->jsonSerialize();
 		}, $providers);

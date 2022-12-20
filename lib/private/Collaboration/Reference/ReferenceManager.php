@@ -34,9 +34,7 @@ use OCP\Collaboration\Reference\Reference;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use OCP\IURLGenerator;
-use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -63,7 +61,7 @@ class ReferenceManager implements IReferenceManager {
 	 * Extract a list of URLs from a text
 	 *
 	 * @param string $text
-	 * @return array|string[]
+	 * @return string[]
 	 */
 	public function extractReferences(string $text): array {
 		preg_match_all(IURLGenerator::URL_REGEX, $text, $matches);
@@ -78,8 +76,6 @@ class ReferenceManager implements IReferenceManager {
 	 *
 	 * @param string $referenceId
 	 * @return IReference|null
-	 * @throws ContainerExceptionInterface
-	 * @throws NotFoundExceptionInterface
 	 */
 	public function getReferenceFromCache(string $referenceId): ?IReference {
 		$matchedProvider = $this->getMatchedProvider($referenceId);
@@ -113,8 +109,6 @@ class ReferenceManager implements IReferenceManager {
 	 *
 	 * @param string $referenceId
 	 * @return IReference|null
-	 * @throws ContainerExceptionInterface
-	 * @throws NotFoundExceptionInterface
 	 */
 	public function resolveReference(string $referenceId): ?IReference {
 		$matchedProvider = $this->getMatchedProvider($referenceId);
@@ -144,8 +138,6 @@ class ReferenceManager implements IReferenceManager {
 	 *
 	 * @param string $referenceId
 	 * @return IReferenceProvider|null the first matching provider
-	 * @throws ContainerExceptionInterface
-	 * @throws NotFoundExceptionInterface
 	 */
 	private function getMatchedProvider(string $referenceId): ?IReferenceProvider {
 		$matchedProvider = null;
@@ -195,8 +187,6 @@ class ReferenceManager implements IReferenceManager {
 
 	/**
 	 * @return IReferenceProvider[]
-	 * @throws ContainerExceptionInterface
-	 * @throws NotFoundExceptionInterface
 	 */
 	public function getProviders(): array {
 		if ($this->providers === null) {
@@ -230,8 +220,6 @@ class ReferenceManager implements IReferenceManager {
 	 * If the provider is searchable, also get the list of supported unified search providers
 	 *
 	 * @return IDiscoverableReferenceProvider[]
-	 * @throws ContainerExceptionInterface
-	 * @throws NotFoundExceptionInterface
 	 */
 	public function getDiscoverableProviders(): array {
 		// preserve 0 based index to avoid returning an object in data responses

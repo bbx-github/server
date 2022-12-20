@@ -24,13 +24,10 @@ declare(strict_types=1);
 
 namespace OC\Core\Controller;
 
-use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\Collaboration\Reference\IDiscoverableReferenceProvider;
 use OCP\Collaboration\Reference\IReferenceManager;
 use OCP\IRequest;
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 
 class ReferenceApiController extends \OCP\AppFramework\OCSController {
 	private IReferenceManager $referenceManager;
@@ -99,12 +96,7 @@ class ReferenceApiController extends \OCP\AppFramework\OCSController {
 	 * @return DataResponse
 	 */
 	public function getProvidersInfo(): DataResponse {
-		try {
-			$providers = $this->referenceManager->getDiscoverableProviders();
-		} catch (ContainerExceptionInterface | NotFoundExceptionInterface $e) {
-			return new DataResponse(['message' => 'Error getting providers'], Http::STATUS_NOT_FOUND);
-		}
-
+		$providers = $this->referenceManager->getDiscoverableProviders();
 		$jsonProviders = array_map(static function (IDiscoverableReferenceProvider $provider) {
 			return $provider->jsonSerialize();
 		}, $providers);
