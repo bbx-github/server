@@ -123,7 +123,7 @@
 				class="appslink"
 				:href="app.bugs"
 				target="_blank"
-				rel="noreferrer noopener">{{ t('settings', 'Visit websitg') }} ↗</a>
+				rel="noreferrer noopener">{{ t('settings', 'Report a bug') }} ↗</a>
 
 			<a v-if="app.documentation && app.documentation.user"
 				class="appslink"
