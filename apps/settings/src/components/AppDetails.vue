@@ -72,14 +72,16 @@
 					:disabled="installing || isLoading"
 					@click="disable(app.id)">
 				<input v-if="!app.active && (app.canInstall || app.isCompatible)"
-					v-tooltip.auto="enableButtonTooltip"
+					:title="enableButtonTooltip"
+					:aria-label="enableButtonTooltip"
 					class="enable primary"
 					type="button"
 					:value="enableButtonText"
 					:disabled="!app.canInstall || installing || isLoading"
 					@click="enable(app.id)">
 				<input v-else-if="!app.active && !app.canInstall"
-					v-tooltip.auto="forceEnableButtonTooltip"
+					:title="forceEnableButtonTooltip"
+					:aria-label="forceEnableButtonTooltip"
 					class="enable force"
 					type="button"
 					:value="forceEnableButtonText"
@@ -121,7 +123,7 @@
 				class="appslink"
 				:href="app.bugs"
 				target="_blank"
-				rel="noreferrer noopener">{{ t('settings', 'Report a bug') }} ↗</a>
+				rel="noreferrer noopener">{{ t('settings', 'Visit websitg') }} ↗</a>
 
 			<a v-if="app.documentation && app.documentation.user"
 				class="appslink"
