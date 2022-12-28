@@ -64,13 +64,13 @@
 import { emit, subscribe } from '@nextcloud/event-bus'
 import { generateUrl } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
+import Cog from 'vue-material-design-icons/Cog.vue'
 import NcAppNavigation from '@nextcloud/vue/dist/Components/NcAppNavigation.js'
 import NcAppNavigationItem from '@nextcloud/vue/dist/Components/NcAppNavigationItem.js'
-import Cog from 'vue-material-design-icons/Cog.vue'
 
-import SettingsModal from './Settings.vue'
-import Navigation from '../services/Navigation.ts'
 import logger from '../logger.js'
+import Navigation from '../services/Navigation.ts'
+import SettingsModal from './Settings.vue'
 
 import { translate } from '@nextcloud/l10n'
 
@@ -167,9 +167,6 @@ export default {
 				})
 				newAppContent.classList.remove('hidden')
 
-				// Legacy event
-				console.debug('F2V', $(newAppContent))
-
 				// Trigger init if not already done
 				window.jQuery(newAppContent).trigger(new window.jQuery.Event('show'))
 
@@ -177,7 +174,6 @@ export default {
 				this.$nextTick(() => {
 					const { dir = '/' } = OC.Util.History.parseUrlQuery()
 					const params = { itemId: view.id, dir }
-					console.debug('F2V showView events', params, newAppContent);
 					window.jQuery(newAppContent).trigger(new window.jQuery.Event('show', params))
 					window.jQuery(newAppContent).trigger(new window.jQuery.Event('urlChanged', params))
 				})

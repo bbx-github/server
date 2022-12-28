@@ -42,7 +42,8 @@ class UserConfig {
 	];
 
 	protected IConfig $config;
-	protected IUser|null $user;
+	/** @var \OCP\IUser|null */
+	protected mixed $user = null;
 
 	public function __construct(IConfig $config, IUserSession $userSession) {
 		$this->config = $config;

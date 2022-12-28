@@ -1,6 +1,4 @@
-/* eslint-disable import/first */
 /* eslint-disable node/no-unpublished-import */
-process.env.NODE_ENV = 'development'
 
 import {
 	applyChangesToNextcloud,
@@ -12,12 +10,6 @@ import {
 import { defineConfig } from 'cypress'
 
 import browserify from '@cypress/browserify-preprocessor'
-import webpackConfig from '@nextcloud/webpack-vue-config'
-
-webpackConfig.module.rules.push({
-	test: /\.svg$/,
-	type: 'asset/source',
-})
 
 export default defineConfig({
 	projectId: '37xpdh',
@@ -103,7 +95,19 @@ export default defineConfig({
 		devServer: {
 			framework: 'vue',
 			bundler: 'webpack',
-			webpackConfig,
+			webpackConfig: async () => {
+				process.env.npm_package_name = 'NcCypress'
+				process.env.npm_package_version = '1.0.0'
+				process.env.NODE_ENV = 'development'
+
+				const config = require('@nextcloud/webpack-vue-config')
+				config.module.rules.push({
+					test: /\.svg$/,
+					type: 'asset/source',
+				})
+
+				return config
+			},
 		},
 	},
 })
