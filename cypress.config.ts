@@ -1,8 +1,23 @@
+/* eslint-disable import/first */
 /* eslint-disable node/no-unpublished-import */
-import { applyChangesToNextcloud, configureNextcloud, preppingNextcloud, startNextcloud, stopNextcloud, waitOnNextcloud } from './cypress/dockerNode'
+process.env.NODE_ENV = 'development'
+
+import {
+	applyChangesToNextcloud,
+	configureNextcloud,
+	startNextcloud,
+	stopNextcloud,
+	waitOnNextcloud,
+} from './cypress/dockerNode'
 import { defineConfig } from 'cypress'
 
 import browserify from '@cypress/browserify-preprocessor'
+import webpackConfig from '@nextcloud/webpack-vue-config'
+
+webpackConfig.module.rules.push({
+	test: /\.svg$/,
+	type: 'asset/source',
+})
 
 export default defineConfig({
 	projectId: '37xpdh',
@@ -29,6 +44,7 @@ export default defineConfig({
 		failSilently: false,
 		type: 'actual',
 	},
+
 	screenshotsFolder: 'cypress/snapshots/actual',
 	trashAssetsBeforeRuns: true,
 
@@ -80,6 +96,14 @@ export default defineConfig({
 				.then(() => {
 					return config
 				})
+		},
+	},
+
+	component: {
+		devServer: {
+			framework: 'vue',
+			bundler: 'webpack',
+			webpackConfig,
 		},
 	},
 })
