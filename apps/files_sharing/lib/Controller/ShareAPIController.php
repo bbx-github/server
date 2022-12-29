@@ -46,10 +46,10 @@ namespace OCA\Files_Sharing\Controller;
 
 use OC\Files\FileInfo;
 use OC\Files\Storage\Wrapper\Wrapper;
+use OCA\Files\Helper;
 use OCA\Files_Sharing\Exceptions\SharingRightsException;
 use OCA\Files_Sharing\External\Storage;
 use OCA\Files_Sharing\SharedStorage;
-use OCA\Files\Helper;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSBadRequestException;
@@ -59,9 +59,9 @@ use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\OCSController;
 use OCP\AppFramework\QueryException;
 use OCP\Constants;
+use OCP\Files\Folder;
 use OCP\Files\InvalidPathException;
 use OCP\Files\IRootFolder;
-use OCP\Files\Folder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\IConfig;
@@ -74,12 +74,14 @@ use OCP\IURLGenerator;
 use OCP\IUserManager;
 use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
-use OCP\Share;
+use OCP\Server;
 use OCP\Share\Exceptions\GenericShareException;
 use OCP\Share\Exceptions\ShareNotFound;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
 use OCP\UserStatus\IManager as IUserStatusManager;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 /**
  * Class Share20OCS
@@ -276,7 +278,7 @@ class ShareAPIController extends OCSController {
 			$result['url'] = $this->urlGenerator->linkToRouteAbsolute('files_sharing.sharecontroller.showShare', ['token' => $share->getToken()]);
 		} elseif ($share->getShareType() === IShare::TYPE_REMOTE || $share->getShareType() === IShare::TYPE_REMOTE_GROUP) {
 			$result['share_with'] = $share->getSharedWith();
-			$result['share_with_displayname'] = $this->getDisplayNameFromAddressBook($share->getSharedWith(), 'CLOUD');
+			$result['share_with_displayname'] = $this->getCachedFederatedDisplayName($share->getSharedWith());
 			$result['token'] = $share->getToken();
 		} elseif ($share->getShareType() === IShare::TYPE_EMAIL) {
 			$result['share_with'] = $share->getSharedWith();
@@ -359,6 +361,95 @@ class ShareAPIController extends OCSController {
 
 		return $query;
 	}
+
+
+	/**
+	 * @param array $shares
+	 * @param array|null $updatedDisplayName
+	 *
+	 * @return array
+	 */
+	private function fixMissingDisplayName(array $shares, ?array $updatedDisplayName = null): array {
+		$userIds = $updated = [];
+		foreach ($shares as $share) {
+			// share is federated and share have no display name yet
+			if ($share['share_type'] === IShare::TYPE_REMOTE && $share['share_with_displayname'] === '') {
+				$userIds[] = $userId = $share['share_with'];
+
+				if ($updatedDisplayName !== null && array_key_exists($userId, $updatedDisplayName)) {
+					$share['share_with_displayname'] = $updatedDisplayName[$userId];
+				}
+			}
+
+			// prepping userIds with displayName to be updated
+			$updated[] = $share;
+		}
+
+		// if $updatedDisplayName is not null, it means we should have already fixed displayNames of the shares
+		if ($updatedDisplayName !== null) {
+			return $updated;
+		}
+
+		// get displayName for the generated list of userId with no displayName
+		$displayNames = $this->retrieveFederatedDisplayName($userIds);
+
+		// if no displayName are updated, we exit
+		if (empty($displayNames)) {
+			return $updated;
+		}
+
+		// let's fix missing display name and returns all shares
+		return $this->fixMissingDisplayName($shares, $displayNames);
+	}
+
+
+	/**
+	 * get displayName of a list of userIds from the lookup-server; through the globalsiteselector app.
+	 * returns an array with userIds as keys and displayName as values.
+	 *
+	 * @param array $userIds
+	 * @param bool $cacheOnly - do not reach LUS, get data from cache.
+	 *
+	 * @return array
+	 */
+	private function retrieveFederatedDisplayName(array $userIds, bool $cacheOnly = false): array {
+		// check if gss is enabled and available
+		if (count($userIds) === 0
+			|| !$this->appManager->isInstalled('globalsiteselector')
+			|| !class_exists('\OCA\GlobalSiteSelector\Service\SlaveService')) {
+			return [];
+		}
+
+		try {
+			$slaveService = Server::get(\OCA\GlobalSiteSelector\Service\SlaveService::class);
+		} catch (ContainerExceptionInterface $e) {
+			\OC::$server->getLogger()->logException($e);
+			return [];
+		}
+
+		return $slaveService->getUsersDisplayName($userIds, $cacheOnly);
+	}
+
+
+	/**
+	 * retrieve displayName from cache if available (should be used on federated shares)
+	 * if not available in cache/lus, try for get from address-book, else returns empty string.
+	 *
+	 * @param string $userId
+	 * @param bool $cacheOnly if true will not reach the lus but will only get data from cache
+	 *
+	 * @return string
+	 */
+	private function getCachedFederatedDisplayName(string $userId, bool $cacheOnly = true): string {
+		$details = $this->retrieveFederatedDisplayName([$userId], $cacheOnly);
+		if (array_key_exists($userId, $details)) {
+			return $details[$userId];
+		}
+
+		return $this->getDisplayNameFromAddressBook($userId, 'CLOUD');
+	}
+
+
 
 	/**
 	 * Get a specific share by id
@@ -648,6 +739,8 @@ class ShareAPIController extends OCSController {
 					throw new OCSNotFoundException($this->l->t('Invalid date, date format must be YYYY-MM-DD'));
 				}
 			}
+
+			$share->setSharedWithDisplayName($this->getCachedFederatedDisplayName($shareWith, false));
 		} elseif ($shareType === IShare::TYPE_REMOTE_GROUP) {
 			if (!$this->shareManager->outgoingServer2ServerGroupSharesAllowed()) {
 				throw new OCSForbiddenException($this->l->t('Sharing %1$s failed because the back end does not allow shares from type %2$s', [$node->getPath(), $shareType]));
@@ -777,7 +870,6 @@ class ShareAPIController extends OCSController {
 
 		// filter out duplicate shares
 		$known = [];
-
 
 		$formatted = $miniFormatted = [];
 		$resharingRight = false;
@@ -941,6 +1033,9 @@ class ShareAPIController extends OCSController {
 		if (!$resharingRight) {
 			$formatted = $miniFormatted;
 		}
+
+		// fix eventual missing display name from federated shares
+		$formatted = $this->fixMissingDisplayName($formatted);
 
 		if ($includeTags) {
 			$formatted =
