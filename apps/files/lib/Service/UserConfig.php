@@ -80,7 +80,7 @@ class UserConfig {
 	 * @param string $key a valid config key
 	 * @return string|bool
 	 */
-	private function getDefaultConfigValue(string $key): mixed {
+	private function getDefaultConfigValue(string $key) {
 		foreach (self::ALLOWED_CONFIGS as $config) {
 			if ($config['key'] === $key) {
 				return $config['default'];
@@ -97,7 +97,7 @@ class UserConfig {
 	 * @throws \Exception
 	 * @throws \InvalidArgumentException
 	 */
-	public function setConfig(string $key, mixed $value): void {
+	public function setConfig(string $key, $value): void {
 		if ($this->user === null) {
 			throw new \Exception('No user logged in');
 		}
@@ -128,7 +128,7 @@ class UserConfig {
 		}
 
 		$userId = $this->user->getUID();
-		$userConfigs = array_map(function(string $key) use ($userId): string|bool {
+		$userConfigs = array_map(function(string $key) use ($userId) {
 			$value = $this->config->getUserValue($userId, Application::APP_ID, $key, $this->getDefaultConfigValue($key));
 			// If the default is expected to be a boolean, we need to cast the value
 			if (is_bool($this->getDefaultConfigValue($key))) {
