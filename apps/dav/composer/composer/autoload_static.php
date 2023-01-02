@@ -98,6 +98,7 @@ class ComposerStaticInitDAV
         'OCA\\DAV\\CalDAV\\ResourceBooking\\RoomPrincipalBackend' => __DIR__ . '/..' . '/../lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php',
         'OCA\\DAV\\CalDAV\\RetentionService' => __DIR__ . '/..' . '/../lib/CalDAV/RetentionService.php',
         'OCA\\DAV\\CalDAV\\Schedule\\IMipPlugin' => __DIR__ . '/..' . '/../lib/CalDAV/Schedule/IMipPlugin.php',
+        'OCA\\DAV\\CalDAV\\Schedule\\IMipService' => __DIR__ . '/..' . '/../lib/CalDAV/Schedule/IMipService.php',
         'OCA\\DAV\\CalDAV\\Schedule\\Plugin' => __DIR__ . '/..' . '/../lib/CalDAV/Schedule/Plugin.php',
         'OCA\\DAV\\CalDAV\\Search\\SearchPlugin' => __DIR__ . '/..' . '/../lib/CalDAV/Search/SearchPlugin.php',
         'OCA\\DAV\\CalDAV\\Search\\Xml\\Filter\\CompFilter' => __DIR__ . '/..' . '/../lib/CalDAV/Search/Xml/Filter/CompFilter.php',

@@ -422,7 +422,7 @@ class IMipService {
 			/** @var string|null $organizerName */
 			$organizerName = isset($organizer['CN']) ? $organizer['CN']->getValue() : null;
 			$organizerHTML = sprintf('<a href="%s">%s</a>',
-				htmlspecialchars($organizerEmail),
+				htmlspecialchars($organizer->getNormalizedValue()),
 				htmlspecialchars($organizerName ?: $organizerEmail));
 			$organizerText = sprintf('%s <%s>', $organizerName, $organizerEmail);
 			if(isset($organizer['PARTSTAT']) ) {
@@ -449,7 +449,7 @@ class IMipService {
 			$attendeeEmail = substr($attendee->getNormalizedValue(), 7);
 			$attendeeName = isset($attendee['CN']) ? $attendee['CN']->getValue() : null;
 			$attendeeHTML = sprintf('<a href="%s">%s</a>',
-				htmlspecialchars($attendeeEmail),
+				htmlspecialchars($attendee->getNormalizedValue()),
 				htmlspecialchars($attendeeName ?: $attendeeEmail));
 			$attendeeText = sprintf('%s <%s>', $attendeeName, $attendeeEmail);
 			if (isset($attendee['PARTSTAT'])) {

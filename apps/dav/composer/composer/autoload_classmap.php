@@ -83,6 +83,7 @@ return array(
     'OCA\\DAV\\CalDAV\\ResourceBooking\\RoomPrincipalBackend' => $baseDir . '/../lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php',
     'OCA\\DAV\\CalDAV\\RetentionService' => $baseDir . '/../lib/CalDAV/RetentionService.php',
     'OCA\\DAV\\CalDAV\\Schedule\\IMipPlugin' => $baseDir . '/../lib/CalDAV/Schedule/IMipPlugin.php',
+    'OCA\\DAV\\CalDAV\\Schedule\\IMipService' => $baseDir . '/../lib/CalDAV/Schedule/IMipService.php',
     'OCA\\DAV\\CalDAV\\Schedule\\Plugin' => $baseDir . '/../lib/CalDAV/Schedule/Plugin.php',
     'OCA\\DAV\\CalDAV\\Search\\SearchPlugin' => $baseDir . '/../lib/CalDAV/Search/SearchPlugin.php',
     'OCA\\DAV\\CalDAV\\Search\\Xml\\Filter\\CompFilter' => $baseDir . '/../lib/CalDAV/Search/Xml/Filter/CompFilter.php',

@@ -79,38 +79,29 @@ use Sabre\VObject\Recur\EventIterator;
  */
 class IMipPlugin extends SabreIMipPlugin {
 
-	/** @var string */
-	private $userId;
-
-	/** @var IConfig */
-	private $config;
-
-	/** @var IMailer */
-	private $mailer;
-
+	private string $userId;
+	private IConfig $config;
+	private IMailer $mailer;
 	private LoggerInterface $logger;
-
-	/** @var ITimeFactory */
-	private $timeFactory;
-
-	/** @var Defaults */
-	private $defaults;
-
-	/** @var IUserManager */
-	private $userManager;
-
+	private ITimeFactory $timeFactory;
+	private Defaults $defaults;
+	private IUserManager $userManager;
+	private ?VCalendar $vCalendar = null;
+	private IMipService $imipEmailService;
 	public const MAX_DATE = '2038-01-01';
 	public const METHOD_REQUEST = 'request';
 	public const METHOD_REPLY = 'reply';
 	public const METHOD_CANCEL = 'cancel';
 	public const IMIP_INDENT = 15; // Enough for the length of all body bullet items, in all languages
-	private ?VCalendar $vCalendar = null;
-	private IMipService $imipEmailService;
 
-	public function __construct(IConfig $config, IMailer $mailer,
+	public function __construct(IConfig $config,
+								IMailer $mailer,
 								LoggerInterface $logger,
-								ITimeFactory $timeFactory, Defaults $defaults, IUserManager $userManager,
-								$userId, IMipService $comparatorService) {
+								ITimeFactory $timeFactory,
+								Defaults $defaults,
+								IUserManager $userManager,
+								$userId,
+								IMipService $comparatorService) {
 		parent::__construct('');
 		$this->userId = $userId;
 		$this->config = $config;
@@ -319,7 +310,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		try {
 			$failed = $this->mailer->send($message);
 			$iTipMessage->scheduleStatus = '1.1; Scheduling message is sent via iMip';
-			if ($failed) {
+			if (!empty($failed)) {
 				$this->logger->error('Unable to deliver message to {failed}', ['app' => 'dav', 'failed' => implode(', ', $failed)]);
 				$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
 			}
