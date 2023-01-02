@@ -349,11 +349,12 @@ class IMipService {
 	/**
 	 * @param IEMailTemplate $template
 	 * @param string $method
-	 * @param $sender
+	 * @param string $sender
 	 * @param string $summary
+	 * @param string|null $partstat
 	 */
 	public function addSubjectAndHeading(IEMailTemplate $template,
-		string $method, $sender, string $summary, ?string $partstat = null): void {
+		string $method, string $sender, string $summary, ?string $partstat = null): void {
 		if ($method === IMipPlugin::METHOD_CANCEL) {
 			// TRANSLATORS Subject for email, when an invitation is cancelled. Ex: "Cancelled: {{Event Name}}"
 			$template->setSubject($this->l10n->t('Cancelled: %1$s', [$summary]));
@@ -362,13 +363,13 @@ class IMipService {
 			// TRANSLATORS Subject for email, when an invitation is replied to. Ex: "Re: {{Event Name}}"
 			// Technically, the sender should be the attendee here (famous last words)
 			switch ($partstat) {
-				case 'accepted':
+				case 'ACCEPTED':
 					$partstat = $this->l10n->t('%1$s has accepted your invitation', [$sender]);
 					break;
-				case 'tentative':
+				case 'TENTATIVE':
 					$partstat = $this->l10n->t('%1$s has tentatively accepted your invitation', [$sender]);
 					break;
-				case 'declined':
+				case 'DECLINED':
 					$partstat = $this->l10n->t('%1$s has declined your invitation', [$sender]);
 					break;
 				default:
@@ -417,18 +418,17 @@ class IMipService {
 		if (isset($vevent->ORGANIZER)) {
 			/** @var Property\ICalendar\CalAddress $organizer */
 			$organizer = $vevent->ORGANIZER;
-			$organizerURI = $organizer->getNormalizedValue();
-			[$scheme, $organizerEmail] = explode(':', $organizerURI, 2); # strip off scheme mailto:
+			$organizerEmail = substr($organizer->getNormalizedValue(), 7);
 			/** @var string|null $organizerName */
-			$organizerName = isset($organizer['CN']) ? $organizer['CN'] : null;
+			$organizerName = isset($organizer['CN']) ? $organizer['CN']->getValue() : null;
 			$organizerHTML = sprintf('<a href="%s">%s</a>',
-				htmlspecialchars($organizerURI),
+				htmlspecialchars($organizerEmail),
 				htmlspecialchars($organizerName ?: $organizerEmail));
 			$organizerText = sprintf('%s <%s>', $organizerName, $organizerEmail);
-			if (isset($organizer['PARTSTAT'])) {
+			if(isset($organizer['PARTSTAT']) ) {
 				/** @var Parameter $partstat */
 				$partstat = $organizer['PARTSTAT'];
-				if (strcasecmp($partstat->getValue(), 'ACCEPTED') === 0) {
+				if(strcasecmp($partstat->getValue(), 'ACCEPTED') === 0) {
 					$organizerHTML .= ' ✔︎';
 					$organizerText .= ' ✔︎';
 				}
@@ -446,17 +446,19 @@ class IMipService {
 		$attendeesHTML = [];
 		$attendeesText = [];
 		foreach ($attendees as $attendee) {
-			$attendeeURI = $attendee->getNormalizedValue();
-			[$scheme, $attendeeEmail] = explode(':', $attendeeURI, 2); # strip off scheme mailto:
-			$attendeeName = $attendee['CN'] ?? null;
+			$attendeeEmail = substr($attendee->getNormalizedValue(), 7);
+			$attendeeName = isset($attendee['CN']) ? $attendee['CN']->getValue() : null;
 			$attendeeHTML = sprintf('<a href="%s">%s</a>',
-				htmlspecialchars($attendeeURI),
+				htmlspecialchars($attendeeEmail),
 				htmlspecialchars($attendeeName ?: $attendeeEmail));
 			$attendeeText = sprintf('%s <%s>', $attendeeName, $attendeeEmail);
-			if (isset($attendee['PARTSTAT'])
-				&& strcasecmp($attendee['PARTSTAT'], 'ACCEPTED') === 0) {
-				$attendeeHTML .= ' ✔︎';
-				$attendeeText .= ' ✔︎';
+			if (isset($attendee['PARTSTAT'])) {
+				/** @var Parameter $partstat */
+				$partstat = $attendee['PARTSTAT'];
+				if (strcasecmp($partstat->getValue(), 'ACCEPTED') === 0) {
+					$attendeeHTML .= ' ✔︎';
+					$attendeeText .= ' ✔︎';
+				}
 			}
 			$attendeesHTML[] = $attendeeHTML;
 			$attendeesText[] = $attendeeText;
@@ -475,25 +477,25 @@ class IMipService {
 	public function addBulletList(IEMailTemplate $template, VEvent $vevent, $data) {
 		$template->addBodyListItem(
 			$data['meeting_title'], $this->l10n->t('Title:'),
-			$this->getAbsoluteImagePath('caldav/title.png'), $data['meeting_title_plain'], '', IMipPlugin::IMIP_INDENT);
+			$this->getAbsoluteImagePath('caldav/title.png'), $data['meeting_title'], '', IMipPlugin::IMIP_INDENT);
 		if ($data['meeting_when'] !== '') {
 			$template->addBodyListItem($data['meeting_when_html'] ?? $data['meeting_when'], $this->l10n->t('Time:'),
 				$this->getAbsoluteImagePath('caldav/time.png'), $data['meeting_when'], '', IMipPlugin::IMIP_INDENT);
 		}
-		if ($data['meeting_location_html'] !== '') {
-			$template->addBodyListItem($data['meeting_location_html'], $this->l10n->t('Location:'),
+		if ($data['meeting_location'] !== '') {
+			$template->addBodyListItem($data['meeting_location_html'] ?? $data['meeting_location'], $this->l10n->t('Location:'),
 				$this->getAbsoluteImagePath('caldav/location.png'), $data['meeting_location'], '', IMipPlugin::IMIP_INDENT);
 		}
 		if ($data['meeting_url'] !== '') {
-			$template->addBodyListItem($data['meeting_url_html'], $this->l10n->t('Link:'),
+			$template->addBodyListItem($data['meeting_url_html'] ?? $data['meeting_url'], $this->l10n->t('Link:'),
 				$this->getAbsoluteImagePath('caldav/link.png'), $data['meeting_url'], '', IMipPlugin::IMIP_INDENT);
 		}
 
 		$this->addAttendees($template, $vevent);
 
 		/* Put description last, like an email body, since it can be arbitrarily long */
-		if ($data['meeting_description_html']) {
-			$template->addBodyListItem($data['meeting_description_html'], $this->l10n->t('Description:'),
+		if ($data['meeting_description']) {
+			$template->addBodyListItem($data['meeting_description_html'] ?? $data['meeting_description'], $this->l10n->t('Description:'),
 				$this->getAbsoluteImagePath('caldav/description.png'), $data['meeting_description'], '', IMipPlugin::IMIP_INDENT);
 		}
 	}

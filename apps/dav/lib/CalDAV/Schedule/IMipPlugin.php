@@ -227,7 +227,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		switch (strtolower($iTipMessage->method)) {
 			case self::METHOD_REPLY:
 				$method = self::METHOD_REPLY;
-				$partstat = $attendee !== null && isset($attendee->PARTSTAT) ? $attendee->PARTSTAT->getValue() : null;
+				$partstat = isset($iTipMessage->senderName->PARTSTAT) ? $iTipMessage->senderName->PARTSTAT->getValue() : null;
 				$data = $this->imipEmailService->buildBodyData($vEvent, $oldVevent);
 				break;
 			case self::METHOD_CANCEL:
@@ -244,7 +244,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$recipientName = $iTipMessage->recipientName ?: null;
 
 		$sender = substr($iTipMessage->sender, 7);
-		$senderName = $iTipMessage->senderName ?: null;
+		$senderName = isset($iTipMessage->senderName->CN) ? $iTipMessage->senderName->CN->getValue() : null;
 		if ($senderName === null || empty(trim($senderName))) {
 			$senderName = $this->userManager->getDisplayName($this->userId);
 		}
@@ -253,7 +253,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$data['invitee_name'] = ($senderName ?: $sender);
 
 		$fromEMail = Util::getDefaultEmailAddress('invitations-noreply');
-		$fromName = $this->imipEmailService->getFrom($senderName,$this->defaults->getName());
+		$fromName = $this->imipEmailService->getFrom($senderName, $this->defaults->getName());
 
 		$message = $this->mailer->createMessage()
 			->setFrom([$fromEMail => $fromName])
@@ -266,7 +266,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$template = $this->mailer->createEMailTemplate('dav.calendarInvite.' . $method, $data);
 		$template->addHeader();
 
-		$this->imipEmailService->addSubjectAndHeading($template, $method, $attendee, $data['invitee_name'], $data['meeting_title'], $partstat);
+		$this->imipEmailService->addSubjectAndHeading($template, $method, $data['invitee_name'], $data['meeting_title'], $partstat);
 		$this->imipEmailService->addBulletList($template, $vEvent, $data);
 
 		// Only add response buttons to invitation requests: Fix Issue #11230
