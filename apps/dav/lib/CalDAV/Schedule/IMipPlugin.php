@@ -113,7 +113,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		$this->imipEmailService = $comparatorService;
 	}
 
-	public function initialize(DAV\Server $server) {
+	public function initialize(DAV\Server $server): void {
 		parent::initialize($server);
 		$server->on('beforeWriteContent', [$this, 'beforeWriteContent'], 10);
 	}
@@ -126,7 +126,7 @@ class IMipPlugin extends SabreIMipPlugin {
 	 * @param resource $data data
 	 * @param bool $modified modified
 	 */
-	public function beforeWriteContent($uri, INode $node, $data, $modified) {
+	public function beforeWriteContent($uri, INode $node, $data, $modified): void {
 		if(!$node instanceof CalendarObject) {
 			return;
 		}
@@ -197,7 +197,7 @@ class IMipPlugin extends SabreIMipPlugin {
 
 		// No changed events after all - this shouldn't happen if there is significant change yet here we are
 		// The scheduling status is debatable
-		if(!is_array($newEventComponents) || empty($newEventComponents)) {
+		if(empty($newEventComponents)) {
 			$iTipMessage->scheduleStatus = '1.0;We got the message, but it\'s not significant enough to warrant an email';
 			return;
 		}
