@@ -9,12 +9,12 @@ use OCP\Share\IShareDisplayTemplateProvider;
 
 class ShareDisplayTemplateFactory implements IShareDisplayTemplateFactory {
 	/**
-	 * @var IShareDisplayTemplateProvider[] $displayShareTemplateProviders
+	 * @var class-string<IShareDisplayTemplateProvider>[] $displayShareTemplateProviders
 	 */
-	private array $displayShareTemplateProviders = [];
+	private array $displayShareTemplateProviderClasses = [];
 
 	public function registerDisplayShareTemplate(string $shareDisplayTemplateClass): void {
-		$this->displayShareTemplateProviders[] = $shareDisplayTemplateClass;
+		$this->displayShareTemplateProviderClasses[] = $shareDisplayTemplateClass;
 	}
 
 	public function getTemplateProvider(IShare $share): IShareDisplayTemplateProvider {
@@ -23,7 +23,7 @@ class ShareDisplayTemplateFactory implements IShareDisplayTemplateFactory {
 		 */
 		$providers = array_map(
 			fn ($providerClass) => Server::get($providerClass),
-			$this->displayShareTemplateProviders
+			$this->displayShareTemplateProviderClasses
 		);
 		usort($providers, fn (IShareDisplayTemplateProvider $a, IShareDisplayTemplateProvider $b) => $b->getPriority() - $a->getPriority());
 		$filteredProviders = array_filter($providers, fn (IShareDisplayTemplateProvider $provider) => $provider->shouldRespond($share));

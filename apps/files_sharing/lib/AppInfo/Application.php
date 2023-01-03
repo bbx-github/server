@@ -133,9 +133,9 @@ class Application extends App implements IBootstrap {
 		 */
 		Util::addScript(self::APP_ID, 'main');
 
-		$container = $context->getServerContainer();
-		$factory = $container->get(\OCP\Share\IShareDisplayTemplateFactory::class);
-		$factory->registerDisplayShareTemplate(DefaultShareDisplayTemplateProvider::class);
+		$context->getServerContainer()
+			->get(\OCP\Share\IShareDisplayTemplateFactory::class)
+			->registerDisplayShareTemplate(DefaultShareDisplayTemplateProvider::class);
 	}
 
 
