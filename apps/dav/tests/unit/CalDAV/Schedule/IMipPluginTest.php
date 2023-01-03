@@ -189,7 +189,7 @@ class IMipPluginTest extends TestCase {
 			->with('frodo@hobb.it')
 			->willReturn(true);
 		$this->service->expects(self::once())
-			->method('processUnmodifieds')
+			->method('removeIfUnchanged')
 			->willReturn(false);
 		$this->service->expects(self::once())
 			->method('buildBodyData')
@@ -283,7 +283,7 @@ class IMipPluginTest extends TestCase {
 			->with('frodo@hobb.it')
 			->willReturn(true);
 		$this->service->expects(self::exactly(2))
-			->method('processUnmodifieds')
+			->method('removeIfUnchanged')
 			->willReturnOnConsecutiveCalls(true, false);
 		$this->service->expects(self::once())
 			->method('buildBodyData')
@@ -392,7 +392,7 @@ class IMipPluginTest extends TestCase {
 			->with('frodo@hobb.it')
 			->willReturn(true);
 		$this->service->expects(self::once())
-			->method('processUnmodifieds')
+			->method('removeIfUnchanged')
 			->willReturn(false);
 		$this->service->expects(self::once())
 			->method('buildBodyData')
@@ -466,7 +466,7 @@ class IMipPluginTest extends TestCase {
 			->with('frodo@hobb.it')
 			->willReturn(true);
 		$this->service->expects(self::never())
-			->method('processUnmodifieds');
+			->method('removeIfUnchanged');
 		$this->service->expects(self::once())
 			->method('buildBodyData')
 			->with($message->message->VEVENT, null)
@@ -537,7 +537,7 @@ class IMipPluginTest extends TestCase {
 			->with('frodo@hobb.it')
 			->willReturn(true);
 		$this->service->expects(self::never())
-			->method('processUnmodifieds');
+			->method('removeIfUnchanged');
 		$this->service->expects(self::once())
 			->method('buildBodyData')
 			->with($message->message->VEVENT, null)

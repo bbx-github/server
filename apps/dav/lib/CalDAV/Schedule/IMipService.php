@@ -57,7 +57,45 @@ class IMipService {
 		$this->db = $db;
 		$this->random = $random;
 		$this->l10nFactory = $l10nFactory;
+		$default = $this->l10nFactory->findGenericLanguage();
+		$this->l10n = $this->l10nFactory->get('dav', $default);
+	}
 
+	/**
+	 * If found, remove the event from $eventsToFilter that
+	 * is identical to the passed $filterEvent
+	 * and return whether an identical event was found
+	 *
+	 * This function takes into account the SEQUENCE,
+	 * RRULE, RECURRENCE-ID and LAST-MODIFIED parameters
+	 *
+	 * @param VEvent $filterEvent
+	 * @param array $eventsToFilter
+	 * @return bool true if there was an identical event found and removed, false if there wasn't
+	 */
+	public function removeIfUnchanged(VEvent $filterEvent, array &$eventsToFilter): bool {
+		$filterEventData = [
+			isset($filterEvent->{'RECURRENCE-ID'}) ? $filterEvent->{'RECURRENCE-ID'}->getValue() : null,
+			isset($filterEvent->RRULE) ? $filterEvent->RRULE->getValue() : null,
+			isset($filterEvent->SEQUENCE) ? $filterEvent->SEQUENCE->getValue() : null,
+			isset($filterEvent->{'LAST-MODIFIED'}) ? $filterEvent->{'LAST-MODIFIED'}->getValue() : null
+		];
+
+		/** @var VEvent $component */
+		foreach ($eventsToFilter as $k => $eventToFilter) {
+			$eventToFilterData = [
+				isset($eventToFilter->{'RECURRENCE-ID'}) ? $eventToFilter->{'RECURRENCE-ID'}->getValue() : null,
+				isset($eventToFilter->RRULE) ? $eventToFilter->RRULE->getValue() : null,
+				isset($eventToFilter->SEQUENCE) ? $eventToFilter->SEQUENCE->getValue() : null,
+				isset($eventToFilter->{'LAST-MODIFIED'}) ? $eventToFilter->{'LAST-MODIFIED'}->getValue() : null
+			];
+			// events are identical and can be removed
+			if (empty(array_diff($filterEventData, $eventToFilterData))) {
+				unset($eventsToFilter[$k]);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -69,29 +107,6 @@ class IMipService {
 		return $this->l10n->t('%1$s via %2$s', [$senderName, $default]);
 	}
 
-	public function processUnmodifieds(VEvent $event, array &$eventsToFilter): bool {
-		$eventData = [
-			isset($event->{'RECURRENCE-ID'}) ? $event->{'RECURRENCE-ID'}->getValue() : null,
-			isset($event->RRULE) ? $event->RRULE->getValue() : null,
-			isset($event->SEQUENCE) ? $event->SEQUENCE->getValue() : null,
-			isset($event->{'LAST-MODIFIED'}) ? $event->{'LAST-MODIFIED'}->getValue() : null
-		];
-
-		/** @var VEvent $component */
-		foreach ($eventsToFilter as $k => $component) {
-			$componentData = [
-				isset($component->{'RECURRENCE-ID'}) ? $component->{'RECURRENCE-ID'}->getValue() : null,
-				isset($component->RRULE) ? $component->RRULE->getValue() : null,
-				isset($component->SEQUENCE) ? $component->SEQUENCE->getValue() : null,
-				isset($component->{'LAST-MODIFIED'}) ? $component->{'LAST-MODIFIED'}->getValue() : null
-			];
-			if (empty(array_diff($eventData, $componentData))) {
-				unset($eventsToFilter[$k]);
-				return true;
-			}
-		}
-		return false;
-	}
 
 	/**
 	 * @param VEvent $vEvent
@@ -306,9 +321,7 @@ class IMipService {
 	 * @param Property|null $attendee
 	 */
 	public function setL10n(?Property $attendee = null) {
-		$default = $this->l10nFactory->findGenericLanguage();
 		if($attendee === null) {
-			$this->l10n = $this->l10nFactory->get('dav', $default);
 			return;
 		}
 

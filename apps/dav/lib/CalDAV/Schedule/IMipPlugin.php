@@ -189,7 +189,7 @@ class IMipPlugin extends SabreIMipPlugin {
 					unset($oldEventComponents[$k]);
 					continue;
 				}
-				if($this->imipEmailService->processUnmodifieds($event, $newEventComponents)) {
+				if($this->imipEmailService->removeIfUnchanged($event, $newEventComponents)) {
 					unset($oldEventComponents[$k]);
 				}
 			}
