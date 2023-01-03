@@ -56,6 +56,10 @@ jobs:
       matrix:
         # run multiple copies of the current job in parallel
         containers: [1, 2]
+        # Specify extra runners for component testing
+        include:
+          - containers: 0
+            component: true
 
     name: runner ${{ matrix.containers }}
 
@@ -66,14 +70,16 @@ jobs:
           key: cypress-context-${{ github.run_id }}
           path: /home/runner/work/server
 
-      - name: Run E2E cypress tests
-        uses: cypress-io/github-action@v4
+      - name: Run ${{ matrix.component == true && 'component' || 'E2E' }} cypress tests
+
+        uses: cypress-io/github-action@v5
         with:
           record: true
           parallel: true
           # cypress env
           ci-build-id: ${{ github.sha }}-${{ github.run_number }}
-          tag: ${{ github.event_name }}
+          tag: ${{ github.event_name }}t
+          component: ${{ matrix.component }}
         env:
           # Needs to be prefixed with CYPRESS_
           CYPRESS_BRANCH: ${{ env.BRANCH }}
